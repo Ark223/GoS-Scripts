@@ -41,7 +41,7 @@
 	_G.PremiumPrediction:GetMovementSpeed(unit) - returns speed (units per second)
 	_G.PremiumPrediction:GetPositionAfterTime(unit, time) - returns future position (3D Vector)
 	_G.PremiumPrediction:GetWaypoints(unit) - returns table with waypoints
-	_G.PremiumPrediction:IsColliding(source, position, spellData, flags) - returns boolean
+	_G.PremiumPrediction:IsColliding(source, position, spellData, flags, exclude) - returns boolean
 	_G.PremiumPrediction:IsDashing(unit) - returns boolean
 	_G.PremiumPrediction:IsFacing(source, unit, angle) - returns boolean
 	_G.PremiumPrediction:IsMoving(unit) - returns boolean
@@ -69,7 +69,7 @@ local function ReadFile(file)
 	txt:close(); return result
 end
 
-local Version, IntVer = 1.03, "1.0.3"
+local Version, IntVer = 1.04, "1.0.4"
 local function AutoUpdate()
 	DownloadFile("https://raw.githubusercontent.com/Ark223/GoS-Scripts/master/PremiumPrediction.version", COMMON_PATH .. "PremiumPrediction.version")
 	if tonumber(ReadFile(COMMON_PATH .. "PremiumPrediction.version")) > Version then
@@ -563,7 +563,7 @@ function PremiumPred:Intersection(a1, b1, a2, b2)
 	return x ~= 0 and t >= 0 and t <= 1 and u >= 0 and u <= 1 and Point2(a1 + t * r) or nil
 end
 
-function PremiumPred:IsColliding(source, position, spellData, flags)
+function PremiumPred:IsColliding(source, position, spellData, flags, exclude)
 	local position, result = self:To2D(position), false
 	local sourcePos = IsPoint(source) and self:To2D(source) or self:To2D(source.pos)
 	for i = 1, #flags do
@@ -572,12 +572,14 @@ function PremiumPred:IsColliding(source, position, spellData, flags)
 			for i = 1, GameMinionCount() do
 				local minion = GameMinion(i)
 				if minion and minion.valid and minion.visible and minion.team ~= myHero.team and minion.health > 0 and minion.maxHealth > 5 then
-					local predPos = self:GetFastPrediction(source, minion, spellData)
-					if predPos then
-						local predPos = self:To2D(predPos)
-						local point = self:ClosestPointOnSegment(sourcePos, position, predPos)
-						if self:DistanceSquared(predPos, point) <= ((minion.boundingRadius or 45) + spellData.radius + self.PPMenu.CB:Value()) ^ 2 then
-							return true
+					if exclude and minion.networkID ~= exclude.networkID or not exclude then
+						local predPos = self:GetFastPrediction(source, minion, spellData)
+						if predPos then
+							local predPos = self:To2D(predPos)
+							local point = self:ClosestPointOnSegment(sourcePos, position, predPos)
+							if self:DistanceSquared(predPos, point) <= ((minion.boundingRadius or 45) + spellData.radius + self.PPMenu.CB:Value()) ^ 2 then
+								return true
+							end
 						end
 					end
 				end
@@ -586,17 +588,19 @@ function PremiumPred:IsColliding(source, position, spellData, flags)
 			for i = 1, #self.Enemies do
 				local hero = self.Enemies[i]
 				if hero and not hero.dead then
-					local predPos = self:GetFastPrediction(source, hero, spellData)
-					if predPos then
-						local predPos = self:To2D(predPos)
-						local point = self:ClosestPointOnSegment(sourcePos, position, predPos)
-						if self:DistanceSquared(predPos, point) <= ((hero.boundingRadius or 65) + spellData.radius + self.PPMenu.CB:Value()) ^ 2 then
-							return true
+					if exclude and hero.networkID ~= exclude.networkID or not exclude then
+						local predPos = self:GetFastPrediction(source, hero, spellData)
+						if predPos then
+							local predPos = self:To2D(predPos)
+							local point = self:ClosestPointOnSegment(sourcePos, position, predPos)
+							if self:DistanceSquared(predPos, point) <= ((hero.boundingRadius or 65) + spellData.radius + self.PPMenu.CB:Value()) ^ 2 then
+								return true
+							end
 						end
 					end
 				end
 			end
-		elseif flag == "windwall" then
+		elseif flag == "windwall" and self.WindWall ~= nil then -- WINDWALL DETECTION WON'T PROBABLY BE ADDED DUE TO LOW GOS PERFORMANCE
 			local data = self.WindWall
 			if #data == 0 then break end
 			local s1, s2, s3, s4 = Point2(data.pos1 - data.dir), Point2(data.pos1 + data.dir), Point2(data.pos2 - data.dir), Point2(data.pos2 + data.dir)
@@ -608,16 +612,20 @@ function PremiumPred:IsColliding(source, position, spellData, flags)
 end
 
 function PremiumPred:IsFacing(source, unit, angle)
-	return source and unit and self:AngleBetween(self:To2D(source.pos), self:To2D(source.dir), self:To2D(unit.pos)) < (angle or 90)
+	local sPos, uPos, dir = self:To2D(source.pos), self:To2D(unit.pos), self:To2D(source.dir)
+	return self:AngleBetween(sPos, Point2(sPos + dir), uPos) < (angle or 90)
 end
 
 function PremiumPred:IsPointInArc(sourcePos, unitPos, endPos, range, angle)
 	local sourcePos = IsVector(sourcePos) and self:To2D(sourcePos) or sourcePos
 	local unitPos = IsVector(unitPos) and self:To2D(unitPos) or unitPos
 	local endPos = IsVector(endPos) and self:To2D(endPos) or endPos
-	local e1 = Point2(endPos):Rotated(-angle / 2); local e2 = Point2(e1):Rotated(angle)
-	return self:DistanceSquared(startPos, unitPos) <= range * range and
-	self:CrossProduct(e1, unitPos) > 0 and self:CrossProduct(unitPos, e2) > 0
+	local angle = MathRad(angle) / 2
+	local a, b = Point2(startPos - unitPos), Point2(startPos - endPos)
+	local c = self:Magnitude(b); local d = self:DotProduct(a, b) / c
+	local inf = d / self:Magnitude(a) <= MathCos(angle)
+	if inf then return false end
+	return d <= c and self:DistanceSquared(sourcePos, unitPos) <= range * range
 end
 
 function PremiumPred:Magnitude(p)
@@ -987,7 +995,7 @@ function PremiumPred:GetHitChance(source, unit, castPos, spellData, timeToHit, c
 	if not unit.visible then hitChance = hitChance / 2 end
 	local flags = spellData.collision
 	if self:DistanceSquared(sourcePos, castPos) > spellData.range * spellData.range then hitChance = 0
-	elseif flags and #flags > 0 and self:IsColliding(source, self:To3D(castPos), spellData, flags) then hitChance = -1 end
+	elseif flags and #flags > 0 and self:IsColliding(source, self:To3D(castPos), spellData, flags, unit) then hitChance = -1 end
 	return hitChance
 end
 
@@ -1008,7 +1016,7 @@ _G.PremiumPrediction = {
 	GetMovementSpeed = function(self, unit) return PremiumPred:GetMovementSpeed(unit) end,
 	GetPositionAfterTime = function(self, unit, time) return PremiumPred:GetPositionAfterTime(unit, time) end,
 	GetWaypoints = function(self, unit) return PremiumPred:GetWaypoints3D(unit) end,
-	IsColliding = function(self, source, position, spellData, flags) return PremiumPred:IsColliding(source, position, spellData, flags) end,
+	IsColliding = function(self, source, position, spellData, flags, exclude) return PremiumPred:IsColliding(source, position, spellData, flags, exclude) end,
 	IsDashing = function(self, unit) return PremiumPred:IsDashing(unit) end,
 	IsFacing = function(self, source, unit, angle) return PremiumPred:IsFacing(source, unit, angle) end,
 	IsMoving = function(self, unit) return PremiumPred:IsMoving(unit) end,
