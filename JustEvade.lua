@@ -1189,7 +1189,7 @@ function JEvade:__init()
 			return self:RectangleToPolygon(sP2, eP2, data.radius + self.BoundingRadius), self:RectangleToPolygon(sP2, eP2, data.radius) end,
 		["ZoeE"] = function(sP, eP, data)
 			local p1 = self:CircleToPolygon(eP, data.radius + self.BoundingRadius, self.JEMenu.Core.CQ:Value())
-			local p2 = self:CircleToPolygon(endPos, radius, self.JEMenu.Core.CQ:Value())
+			local p2 = self:CircleToPolygon(eP, data.radius, self.JEMenu.Core.CQ:Value())
 			self:AddSpell(p1, p2, sP, eP, data, MathHuge, data.range, 5, 250, "ZoeE")
 			return p1, p2 end,
 		["AatroxQ2"] = function(sP, eP, data)
