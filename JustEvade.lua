@@ -12,6 +12,9 @@
 
 	Changelog:
 
+	v1.0.8
+	+ Fixed importing danger level to spells table
+
 	v1.0.7
 	+ Added Senna's spells
 
@@ -56,7 +59,7 @@ local function ReadFile(file)
 	txt:close(); return result
 end
 
-local Version, IntVer = 1.07, "1.0.7"
+local Version, IntVer = 1.08, "1.0.8"
 local function AutoUpdate()
 	DownloadFile("https://raw.githubusercontent.com/Ark223/GoS-Scripts/master/JustEvade.version", SCRIPT_PATH .. "JustEvade.version")
 	if tonumber(ReadFile(SCRIPT_PATH .. "JustEvade.version")) > Version then
@@ -1595,7 +1598,8 @@ function JEvade:AddSpell(p1, p2, sP, eP, data, speed, range, delay, radius, name
 	TableInsert(self.DetectedSpells, {
 		path = p1, path2 = p2, position = sP, startPos1 = sP, startPos2 = sP2, endPos = eP, speed = speed, range = range,
 		delay = delay, radius = radius, radius2 = data.radius2, angle = data.angle, name = name, startTime = GameTimer(),
-		type = data.type, danger = data.danger, cc = data.cc, collision = data.collision, windwall = data.windwall, y = data.y
+		type = data.type, danger = self.JEMenu.Spells[name]["Danger"..name]:Value() or 1, cc = data.cc,
+		collision = data.collision, windwall = data.windwall, y = data.y
 	})
 end
 
@@ -1916,9 +1920,7 @@ function JEvade:OnProcessSpell(unit, spell)
 				if data.exception then return end
 				local startPos, placementPos = self:To2D(spell.startPos), self:To2D(spell.placementPos)
 				local endPos, range = self:CalculateEndPos(startPos, placementPos, unitPos, data.speed, data.range, data.radius, data.collision, data.type, data.extend)
-				local extraRadius = self.JEMenu.Spells[name]["ER"..name]:Value() or 0
-				local danger = self.JEMenu.Spells[name]["Danger"..name]:Value() or 1
-				data.range, data.radius, data.y = range, data.radius + extraRadius, spell.placementPos.y
+				data.range, data.radius, data.y = range, data.radius + (self.JEMenu.Spells[name]["ER"..name]:Value() or 0), spell.placementPos.y
 				local path, path2 = self:GetPaths(startPos, endPos, data, name)
 				if path == nil then return end
 				if name == "VelkozQ" then self:SpellExistsThenRemove("VelkozQ"); return end
@@ -1956,9 +1958,7 @@ function JEvade:OnCreateMissile(unit, missile)
 	if self.JEMenu.Spells[menuName]["FOW"..menuName]:Value() and not unit.visible and not data.exception or (data.exception and unit.visible) then
 		local startPos, placementPos = self:To2D(missile.startPos), self:To2D(missile.endPos)
 		local endPos, range = self:CalculateEndPos(startPos, placementPos, unitPos, data.speed, data.range, data.radius, data.collision, data.type, data.extend)
-		local extraRadius = self.JEMenu.Spells[menuName]["ER"..menuName]:Value() or 0
-		local danger = self.JEMenu.Spells[menuName]["Danger"..menuName]:Value() or 1
-		data.range, data.radius, data.y = range, data.radius + extraRadius, missile.endPos.y
+		data.range, data.radius, data.y = range, data.radius + (self.JEMenu.Spells[menuName]["ER"..menuName]:Value() or 0), missile.endPos.y
 		local path, path2 = self:GetPaths(startPos, endPos, data, name)
 		if path == nil then return end
 		if menuName == "VelkozQMissileSplit" then self:SpellExistsThenRemove("VelkozQ")
