@@ -1147,10 +1147,10 @@ function JEvade:__init()
 	self.JEMenu.Core:MenuElement({id = "SmoothEvade", name = "Enable Smooth Evading", value = true})
 	self.JEMenu.Core:MenuElement({id = "LimitRange", name = "Limit Detection Range", value = true})
 	self.JEMenu.Core:MenuElement({id = "CQ", name = "Circle Segments Quality", value = 16, min = 10, max = 25, step = 1})
-	self.JEMenu.Core:MenuElement({id = "DS", name = "Diagonal Search Step", value = 30, min = 5, max = 100, step = 5})
-	self.JEMenu.Core:MenuElement({id = "DC", name = "Diagonal Points Count", value = 3, min = 1, max = 8, step = 1})
-	self.JEMenu.Core:MenuElement({id = "LR", name = "Limited Detection Range", value = 5000, min = 500, max = 10000, step = 250})
-	self.JEMenu.Core:MenuElement({id = "SS", name = "Safety Check Sensitivity", value = 10, min = 0, max = 100, step = 1})
+	self.JEMenu.Core:MenuElement({id = "DS", name = "Diagonal Search Step", value = 25, min = 5, max = 100, step = 5})
+	self.JEMenu.Core:MenuElement({id = "DC", name = "Diagonal Points Count", value = 4, min = 1, max = 8, step = 1})
+	self.JEMenu.Core:MenuElement({id = "LR", name = "Limited Detection Range", value = 5250, min = 500, max = 10000, step = 250})
+	self.JEMenu.Core:MenuElement({id = "SS", name = "Safety Check Sensitivity", value = 5, min = 0, max = 100, step = 1})
 	self.JEMenu:MenuElement({id = "Main", name = "Main Settings", type = MENU})
 	self.JEMenu.Main:MenuElement({id = "Evade", name = "Enable Evade", value = true})
 	self.JEMenu.Main:MenuElement({id = "Dodge", name = "Dodge Spells", value = true})
@@ -1357,7 +1357,7 @@ function JEvade:AppendVector(pos1, pos2, dist)
 	return pos2 + Point2D(pos2 - pos1):Normalized() * dist
 end
 
-function JEvade:CalculateEndPos(startPos, placementPos, unitPos, speed, range, radius, collision, type)
+function JEvade:CalculateEndPos(startPos, placementPos, unitPos, speed, range, radius, collision, type, extend)
 	local endPos = Point2D(startPos):Extended(placementPos, range)
 	if not extend then
 		if range > 0 then if self:Distance(unitPos, placementPos) < range then endPos = placementPos end
@@ -1588,7 +1588,7 @@ function JEvade:PrependVector(pos1, pos2, dist)
 	return pos1 + Point2D(pos2 - pos1):Normalized() * dist
 end
 
-function JEvade:RectangleToPolygon(startPos, endPos, radius)
+function JEvade:RectangleToPolygon(startPos, endPos, radius, offset)
 	local offset = offset or 0
 	local dir = Point2D(endPos - startPos):Normalized()
 	local perp = (radius + offset) * dir:Perpendicular()
@@ -1748,7 +1748,7 @@ function JEvade:Tick()
 	if myHero.dead then return end
 	for i = 1, #self.Enemies do
 		local unit, spell = self.Enemies[i].unit, self.Enemies[i].spell
-		if unit and not unit.dead and unit.valid then
+		if unit and not unit.dead then
 			local active = unit.activeSpell
 			if active and active.valid and spell ~= active.name .. active.endTime and active.isChanneling then
 				self.Enemies[i].spell = active.name .. active.endTime
