@@ -12,6 +12,9 @@
 
 	Changelog:
 
+	v1.1
+	+ Added Sett's spells
+
 	v1.0.9
 	+ Added Aphelios spells
 
@@ -62,7 +65,7 @@ local function ReadFile(file)
 	txt:close(); return result
 end
 
-local Version, IntVer = 1.09, "1.0.9"
+local Version, IntVer = 1.1, "1.1"
 local function AutoUpdate()
 	DownloadFile("https://raw.githubusercontent.com/Ark223/GoS-Scripts/master/JustEvade.version", SCRIPT_PATH .. "JustEvade.version")
 	if tonumber(ReadFile(SCRIPT_PATH .. "JustEvade.version")) > Version then
@@ -439,6 +442,10 @@ local SpellDatabase = {
 		["SennaQCast"] = {icon = Icons.."SennaQ"..Png, displayName = "Piercing Darkness", slot = _Q, type = "linear", speed = MathHuge, range = 1400, delay = 0.4, radius = 80, danger = 2, cc = false, collision = false, windwall = false, hitbox = true, fow = false, exception = false, extend = true},
 		["SennaW"] = {icon = Icons.."SennaW"..Png, displayName = "Last Embrace", missileName = "SennaW", slot = _W, type = "linear", speed = 1150, range = 1300, delay = 0.25, radius = 60, danger = 1, cc = true, collision = true, windwall = true, hitbox = true, fow = true, exception = false, extend = true},
 		["SennaR"] = {icon = Icons.."SennaR"..Png, displayName = "Dawning Shadow", missileName = "SennaRWarningMis", slot = _R, type = "linear", speed = 20000, range = 12500, delay = 1, radius = 180, danger = 4, cc = false, collision = false, windwall = true, hitbox = true, fow = true, exception = false, extend = true},
+	},
+	["Sett"] = {
+		["SettW"] = {icon = Icons.."SettW"..Png, displayName = "Haymaker", slot = _W, type = "polygon", speed = MathHuge, range = 790, delay = 0.75, radius = 160, danger = 2, cc = false, collision = false, windwall = false, hitbox = false, fow = false, exception = false, extend = true},
+		["SettE"] = {icon = Icons.."SettE"..Png, displayName = "Facebreaker", slot = _E, type = "polygon", speed = MathHuge, range = 490, delay = 0.25, radius = 175, danger = 3, cc = true, collision = false, windwall = false, hitbox = false, fow = false, exception = false, extend = true},
 	},
 	--["Shen"] = {
 	--	["ShenE"] = {icon = Icons.."ShenE"..Png, displayName = "Shadow Dash", slot = _E, type = "linear", speed = 1200, range = 600, delay = 0, radius = 60, danger = 2, cc = true, collision = false, windwall = false, hitbox = false, fow = false, exception = false, extend = true},
@@ -1194,7 +1201,7 @@ function JEvade:__init()
 	self.SpecialSpells = {
 		["PantheonR"] = function(sP, eP, data)
 			local sP2, eP2 = Point2D(eP):Extended(sP, 1150), self:AppendVector(sP, eP, 200)
-			return self:RectangleToPolygon(sP2, eP2, data.radius + self.BoundingRadius), self:RectangleToPolygon(sP2, eP2, data.radius) end,
+			return self:RectangleToPolygon(sP2, eP2, data.radius, self.BoundingRadius), self:RectangleToPolygon(sP2, eP2, data.radius) end,
 		["ZoeE"] = function(sP, eP, data)
 			local p1 = self:CircleToPolygon(eP, data.radius + self.BoundingRadius, self.JEMenu.Core.CQ:Value())
 			local p2 = self:CircleToPolygon(eP, data.radius, self.JEMenu.Core.CQ:Value())
@@ -1250,6 +1257,18 @@ function JEvade:__init()
 			local p2 = self:CircleToPolygon(eP, 135, self.JEMenu.Core.CQ:Value())
 			local path = XPolygon:ClipPolygons(p1, p2, "union")
 			return XPolygon:OffsetPolygon(path, self.BoundingRadius), path end,
+		["SettW"] = function(sP, eP, data)
+			local sPos = self:AppendVector(eP, sP, -40)
+			local ePos = Point(sPos):Extended(eP, data.range)
+			local dir = Point(ePos - sPos):Perpendicular():Normalized() * data.radius
+			local s1, s2 = Point(sPos - dir), Point(sPos + dir)
+			local e1 = self:Rotate(s1, Point2D(s1):Extended(ePos, data.range), -MathRad(30))
+			local e2 = self:Rotate(s2, Point2D(s2):Extended(ePos, data.range), MathRad(30))
+			local path = {s1, e1, e2, s2}
+			return XPolygon:OffsetPolygon(path, self.BoundingRadius), path end,
+		["SettE"] = function(sP, eP, data)
+			local sPos = Point2D(sP):Extended(eP, -data.range)
+			return self:RectangleToPolygon(sPos, eP, data.radius, self.BoundingRadius), self:RectangleToPolygon(sPos, eP, data.radius) end,
 		["SylasQ"] = function(sP, eP, data)
 			local dir = Point2D(eP - sP):Perpendicular():Normalized() * 100
 			local s1, s2 = Point2D(sP - dir), Point2D(sP + dir)
@@ -1261,7 +1280,7 @@ function JEvade:__init()
 			return XPolygon:OffsetPolygon(path, self.BoundingRadius), path end,
 		["ThreshEFlay"] = function(sP, eP, data)
 			local sPos = Point2D(sP):Extended(eP, -data.range)
-			return self:RectangleToPolygon(sPos, eP, data.radius + self.BoundingRadius), self:RectangleToPolygon(sPos, eP, data.radius) end,
+			return self:RectangleToPolygon(sPos, eP, data.radius, self.BoundingRadius), self:RectangleToPolygon(sPos, eP, data.radius) end,
 		["ZiggsQ"] = function(sP, eP, data)
 			local quality = self.JEMenu.Core.CQ:Value()
 			local p1, bp1 = self:CircleToPolygon(eP, data.radius, quality), self:CircleToPolygon(eP, data.radius + self.BoundingRadius, quality)
@@ -1276,15 +1295,13 @@ function JEvade:__init()
 	}
 	self.SpellTypes = {
 		["linear"] = function(sP, eP, data)
-			local oPos = data.extend and self:AppendVector(sP, eP, self.BoundingRadius) or eP
-			return self:RectangleToPolygon(sP, oPos, data.radius + self.BoundingRadius), self:RectangleToPolygon(sP, eP, data.radius) end,
+			return self:RectangleToPolygon(sP, eP, data.radius, self.BoundingRadius), self:RectangleToPolygon(sP, eP, data.radius) end,
 		["threeway"] = function(sP, eP, data)
-			local oPos = self:AppendVector(sP, eP, self.BoundingRadius)
-			return self:RectangleToPolygon(sP, oPos, data.radius + self.BoundingRadius), self:RectangleToPolygon(sP, eP, data.radius) end,
+			return self:RectangleToPolygon(sP, eP, data.radius, self.BoundingRadius), self:RectangleToPolygon(sP, eP, data.radius) end,
 		["rectangular"] = function(sP, eP, data)
 			local sP2 = eP - Point2D(eP - sP):Perpendicular():Normalized() * (data.radius2 or 400)
 			local eP2 = eP + Point2D(eP - sP):Perpendicular():Normalized() * (data.radius2 or 400)
-			return self:RectangleToPolygon(sP2, eP2, data.radius / 2 + self.BoundingRadius), self:RectangleToPolygon(sP2, eP2, data.radius / 2) end,
+			return self:RectangleToPolygon(sP2, eP2, data.radius / 2, self.BoundingRadius), self:RectangleToPolygon(sP2, eP2, data.radius / 2) end,
 		["circular"] = function(sP, eP, data)
 			local quality = self.JEMenu.Core.CQ:Value()
 			return self:CircleToPolygon(eP, data.radius + self.BoundingRadius, quality), self:CircleToPolygon(eP, data.radius, quality) end,
@@ -1292,8 +1309,7 @@ function JEvade:__init()
 			local path = self:ConeToPolygon(sP, eP, data.angle)
 			return XPolygon:OffsetPolygon(path, self.BoundingRadius), path end,
 		["polygon"] = function(sP, eP, data)
-			local oPos = data.extend and self:AppendVector(sP, eP, self.BoundingRadius) or eP
-			return self:RectangleToPolygon(sP, oPos, data.radius + self.BoundingRadius), self:RectangleToPolygon(sP, eP, data.radius) end
+			return self:RectangleToPolygon(sP, eP, data.radius, self.BoundingRadius), self:RectangleToPolygon(sP, eP, data.radius) end
 	}
 	DelayAction(function()
 		self:LoadEvadeSpells()
@@ -1510,7 +1526,7 @@ function JEvade:IsAboutToHit(spell, pos, extra)
 		local vb = Point2D(spell.endPos - spell.position):Normalized() * spell.speed
 		local da, db = Point2D(myPos - spell.position), Point2D(va - vb)
 		local a, b = self:DotProduct(db, db), 2 * self:DotProduct(da, db)
-		local c = self:DotProduct(da, da) - (spell.radius + self.BoundingRadius * 1.5) ^ 2
+		local c = self:DotProduct(da, da) - (spell.radius + self.BoundingRadius * 1.25) ^ 2
 		local delta = b * b - 4 * a * c
 		if delta >= 0 then
 			local rtDelta = MathSqrt(delta)
@@ -1573,8 +1589,11 @@ function JEvade:PrependVector(pos1, pos2, dist)
 end
 
 function JEvade:RectangleToPolygon(startPos, endPos, radius)
-	local dir = Point2D(endPos - startPos):Perpendicular():Normalized() * radius
-	return {Point2D(startPos - dir), Point2D(startPos + dir), Point2D(endPos + dir), Point2D(endPos - dir)}
+	local offset = offset or 0
+	local dir = Point2D(endPos - startPos):Normalized()
+	local perp = (radius + offset) * dir:Perpendicular()
+	return {Point2D(startPos + perp - offset * dir), Point2D(startPos - perp - offset * dir),
+		Point2D(endPos - perp + offset * dir), Point2D(endPos + perp + offset * dir)}
 end
 
 function JEvade:Rotate(startPos, endPos, theta)
@@ -1602,12 +1621,12 @@ end
 --]]
 
 function JEvade:AddSpell(p1, p2, sP, eP, data, speed, range, delay, radius, name)
-	local sP2 = self:AppendVector(eP, sP, self.BoundingRadius)
 	TableInsert(self.DetectedSpells, {
-		path = p1, path2 = p2, position = sP, startPos1 = sP, startPos2 = sP2, endPos = eP, speed = speed, range = range,
-		delay = delay, radius = radius, radius2 = data.radius2, angle = data.angle, name = name, startTime = GameTimer(),
-		type = data.type, danger = self.JEMenu.Spells[name]["Danger"..name]:Value() or 1, cc = data.cc,
-		collision = data.collision, windwall = data.windwall, y = data.y
+		path = p1, path2 = p2, position = sP, startPos = sP, endPos = eP,
+		speed = speed, range = range, delay = delay, radius = radius,
+		radius2 = data.radius2, angle = data.angle, name = name, startTime = GameTimer(),
+		type = data.type, danger = self.JEMenu.Spells[name]["Danger"..name]:Value() or 1,
+		cc = data.cc, collision = data.collision, windwall = data.windwall, y = data.y
 	})
 end
 
@@ -1729,11 +1748,13 @@ function JEvade:Tick()
 	if myHero.dead then return end
 	for i = 1, #self.Enemies do
 		local unit, spell = self.Enemies[i].unit, self.Enemies[i].spell
-		local active = unit.activeSpell
-		if active and spell ~= active.name .. active.endTime and active.isChanneling then
-			self.Enemies[i].spell = active.name .. active.endTime
-			self:OnProcessSpell(unit, active)
-			for i = 1, #self.OnProcSpellCBs do self.OnProcSpellCBs[i](unit, active) end
+		if unit and not unit.dead and unit.valid then
+			local active = unit.activeSpell
+			if active and active.valid and spell ~= active.name .. active.endTime and active.isChanneling then
+				self.Enemies[i].spell = active.name .. active.endTime
+				self:OnProcessSpell(unit, active)
+				for i = 1, #self.OnProcSpellCBs do self.OnProcSpellCBs[i](unit, active) end
+			end
 		end
 	end
 	if self.JEMenu.Main.Missile:Value() then
@@ -1842,16 +1863,10 @@ function JEvade:SpellManager(i, s)
 	if s.startTime + s.range / s.speed + s.delay > GameTimer() then
 		if s.speed ~= MathHuge and s.startTime + s.delay < GameTimer() then
 			if s.type == "linear" or s.type == "threeway" then
-				if self.DetectedSpells[i] then
-					local rng = s.speed * (GameTimer() - s.startTime - s.delay)
-					local sP = Point2D(s.startPos2):Extended(s.endPos, rng)
-					local dir = Point2D(s.endPos-s.startPos2):Perpendicular():Normalized()*(s.radius + self.BoundingRadius)
-					s.path[1], s.path[2] = Point2D(sP - dir), Point2D(sP + dir)
-					local sP2 = Point2D(s.startPos1):Extended(s.endPos, rng)
-					self.DetectedSpells[i].position = sP2
-					local dir2 = Point2D(s.endPos-s.startPos1):Perpendicular():Normalized()*s.radius
-					s.path2[1], s.path2[2] = Point2D(sP2 - dir2), Point2D(sP2 + dir2)
-				end
+				local rng = s.speed * (GameTimer() - s.startTime - s.delay)
+				local sP = Point2D(s.startPos):Extended(s.endPos, rng); s.position = sP
+				s.path = self:RectangleToPolygon(sP, s.endPos, s.radius, self.BoundingRadius)
+				s.path2 = self:RectangleToPolygon(sP, s.endPos, s.radius)
 			end
 		end
 	else TableRemove(self.DetectedSpells, i) end
@@ -1937,7 +1952,7 @@ function JEvade:OnProcessSpell(unit, spell)
 					for i = 1, 2 do
 						local eP = i == 1 and self:Rotate(startPos, endPos, MathRad(data.angle)) or
 											self:Rotate(startPos, endPos, -MathRad(data.angle))
-						local p1 = self:RectangleToPolygon(startPos, eP, data.radius + self.BoundingRadius)
+						local p1 = self:RectangleToPolygon(startPos, eP, data.radius, self.BoundingRadius)
 						local p2 = self:RectangleToPolygon(startPos, eP, data.radius)
 						self:AddSpell(p1, p2, startPos, eP, data, data.speed, range, data.delay, data.radius, name)
 					end
@@ -1976,7 +1991,7 @@ function JEvade:OnCreateMissile(unit, missile)
 			for i = 1, 2 do
 				local eP = i == 1 and self:Rotate(startPos, endPos, MathRad(data.angle)) or
 										self:Rotate(startPos, endPos, -MathRad(data.angle))
-				local p1 = self:RectangleToPolygon(startPos, eP, data.radius + self.BoundingRadius)
+				local p1 = self:RectangleToPolygon(startPos, eP, data.radius, self.BoundingRadius)
 				local p2 = self:RectangleToPolygon(startPos, eP, data.radius)
 				self:AddSpell(p1, p2, startPos, eP, data, data.speed, range, 0, data.radius, menuName)
 			end
