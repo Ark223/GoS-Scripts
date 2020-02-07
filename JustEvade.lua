@@ -12,6 +12,9 @@
 
 	Changelog:
 
+	v1.1.1
+	+ Fixed MapPosition callbacks
+
 	v1.1
 	+ Added Sett's spells
 	+ Fixed rectangle offsetting
@@ -66,7 +69,7 @@ local function ReadFile(file)
 	txt:close(); return result
 end
 
-local Version, IntVer = 1.1, "1.1"
+local Version, IntVer = 1.11, "1.1.1"
 local function AutoUpdate()
 	DownloadFile("https://raw.githubusercontent.com/Ark223/GoS-Scripts/master/JustEvade.version", SCRIPT_PATH .. "JustEvade.version")
 	if tonumber(ReadFile(SCRIPT_PATH .. "JustEvade.version")) > Version then
@@ -83,6 +86,7 @@ local TableInsert, TableRemove, TableSort = table.insert, table.remove, table.so
 local Icons, Png = "https://raw.githubusercontent.com/Ark223/LoL-Icons/master/", ".png"
 local FlashIcon = Icons.."Flash"..Png
 
+require "2DGeometry"
 require 'MapPositionGOS'
 
 local SpellDatabase = {
