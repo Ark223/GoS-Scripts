@@ -817,7 +817,8 @@ function PremiumPred:GetAOEPrediction(source, unit, spellData)
 	output.CastPos = self:To3D(bestPos, unit.pos.y)
 	output.TimeToHit = self:CalcTravelTime(sourcePos, output.CastPos, spellData)
 	output.HitChance = self:GetHitChance(source, unit, output.CastPos, spellData, output.TimeToHit, true)
-	return output, bestCount
+	output.HitCount = bestCount
+	return output
 end
 
 function PremiumPred:GetFastPrediction(source, unit, spellData)
