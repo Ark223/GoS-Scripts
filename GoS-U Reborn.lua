@@ -9,6 +9,9 @@
 
 	Changelog:
 
+	v1.2.2
+	+ Fixed MapPosition callbacks
+
 	v1.2.1
 	+ Fixed icons
 
@@ -150,7 +153,7 @@ local OnTicks = {Champion = nil, Utility = nil}
 local BaseUltC = {["Ashe"] = true, ["Draven"] = true, ["Ezreal"] = true, ["Jinx"] = true}
 local Champions = {["Ashe"] = true, ["Caitlyn"] = false, ["Corki"] = false, ["Draven"] = false, ["Ezreal"] = true, ["Jhin"] = false, ["Jinx"] = true, ["Kaisa"] = true, ["Kalista"] = false, ["KogMaw"] = true, ["Lucian"] = true, ["MissFortune"] = false, ["Quinn"] = false, ["Sivir"] = true, ["Tristana"] = true, ["Twitch"] = true, ["Varus"] = false, ["Vayne"] = true, ["Xayah"] = false}
 local Item_HK = {[ITEM_1] = HK_ITEM_1, [ITEM_2] = HK_ITEM_2, [ITEM_3] = HK_ITEM_3, [ITEM_4] = HK_ITEM_4, [ITEM_5] = HK_ITEM_5, [ITEM_6] = HK_ITEM_6, [ITEM_7] = HK_ITEM_7}
-local Version = "1.21"; local LuaVer = "1.2.1"
+local Version = "1.22"; local LuaVer = "1.2.2"
 local VerSite = "https://raw.githubusercontent.com/Ark223/GoS-Scripts/master/GoS-U%20Reborn.version"
 local LuaSite = "https://raw.githubusercontent.com/Ark223/GoS-Scripts/master/GoS-U%20Reborn.lua"
 
@@ -165,6 +168,7 @@ local function OnProcessSpell()
 end
 
 function OnLoad()
+	require '2DGeometry'
 	require 'MapPositionGOS'
 	if FileExist(COMMON_PATH .. "PremiumPrediction.lua") then require "PremiumPrediction" end
 	Module.Awareness = GoSuAwareness()
