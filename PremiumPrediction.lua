@@ -12,7 +12,7 @@ local function ReadFile(file)
 	txt:close(); return result
 end
 
-local Version, IntVer = 1.04, "1.0.4"
+local Version, IntVer = 1.05, "1.0.5"
 local function AutoUpdate()
 	DownloadFile("https://raw.githubusercontent.com/Ark223/GoS-Scripts/master/PremiumPrediction.version", COMMON_PATH .. "PremiumPrediction.version")
 	if tonumber(ReadFile(COMMON_PATH .. "PremiumPrediction.version")) > Version then
@@ -776,7 +776,7 @@ end
 function PremiumPred:GetAOEPrediction(source, unit, spellData)
 	local output = self:GetPrediction(source, unit, spellData)
 	if not output.CastPos then return output end
-	local bestPos, bestCount, positions = output.CastPos, 1, {}
+	local bestPos, bestCount, positions = self:To2D(output.CastPos), 1, {}
 	local sourcePos = IsPoint(source) and self:To2D(source) or self:To2D(source.pos)
 	local candidates = self:GetPossibleUnits(source, unit, spellData)
 	if #candidates > 0 then
@@ -814,10 +814,10 @@ function PremiumPred:GetAOEPrediction(source, unit, spellData)
 			end
 		end
 	end
-	output.CastPos = bestPos
+	output.CastPos = self:To3D(bestPos, unit.pos.y)
 	output.TimeToHit = self:CalcTravelTime(sourcePos, output.CastPos, spellData)
 	output.HitChance = self:GetHitChance(source, unit, output.CastPos, spellData, output.TimeToHit, true)
-	return output
+	return output, bestCount
 end
 
 function PremiumPred:GetFastPrediction(source, unit, spellData)
