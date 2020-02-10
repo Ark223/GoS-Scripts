@@ -795,7 +795,7 @@ function PremiumPred:GetAOEPrediction(source, unit, spellData)
 				local endPos, count = Point2(sourcePos):Extended(pos, spellData.range), 0
 				for j, candidate in ipairs(candidates) do
 					if spellType == "linear" and self:DistanceSquared(candidate, self:ClosestPointOnSegment(sourcePos, endPos, candidate)) <= ((unit.boundingRadius / 2 or 32) +
-						spellData.radius) ^ 2 or (spellType == "conic" and self:IsPointInArc(sourcePos, candidate, pos, spellData.range, spellData.angle or 50)) then
+						spellData.radius) ^ 2 or (spellType == "conic" and self:IsPointInArc(sourcePos, candidate, endPos, spellData.range, spellData.angle or 50)) then
 						count = count + 1
 					end
 				end
