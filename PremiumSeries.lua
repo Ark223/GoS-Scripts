@@ -427,7 +427,7 @@ function Cassiopeia:OnPreAttack(args)
 		self.CassiopeiaMenu.Misc.MinLvl:Value()) or
 		not self.AAHandler
 	if disable or timer - self.QueueTimer < self.WindUp
-		or timer - self.ShouldWait <= 0.35 then
+		or timer - self.ShouldWait <= 0.45 then
 			args.Process = false; return
 	end
 	self.WindUp = 0
@@ -510,7 +510,7 @@ function Cassiopeia:Clear()
 			local arrival, duration = self:CalcFangArrivalTime(minion), self:PoisonDuration(minion)
 			local dmg = Manager:CalcMagicalDamage(myHero, minion, rawDmg + (duration > arrival and bonusDmg or 0))
 			if self.ShouldWait ~= timer then
-				if self:PredictHealth(minion, 2) <= dmg then self.ShouldWait = timer end
+				if self:PredictHealth(minion, 2.5) <= dmg then self.ShouldWait = timer end
 			end
 			if self:PredictHealth(minion) < dmg then
 				self.QueueTimer = timer; self.WindUp = self.E.windup
@@ -533,10 +533,10 @@ function Cassiopeia:Combo(targetQ, targetW, targetE, targetR)
 		end
 	end
 	if targetW and Manager:IsReady(_W) and self.CassiopeiaMenu.Combo.UseW:Value() then
-		local pred = _G.PremiumPrediction:GetAOEPrediction(myHero, targetW, self.W)
-		if pred.CastPos and pred.HitChance >= 0.6 and pred.HitCount >= self.CassiopeiaMenu.Combo.MinW:Value() then
+		local pred = _G.PremiumPrediction:GetPrediction(myHero, targetW, self.W)
+		if pred.PredPos and pred.HitChance >= 0.6 and pred.HitCount >= self.CassiopeiaMenu.Combo.MinW:Value() then
 			self.QueueTimer = GameTimer(); self.WindUp = self.W.windup
-			_G.Control.CastSpell(HK_W, pred.CastPos)
+			_G.Control.CastSpell(HK_W, pred.PredPos)
 		end
 	end
 	if targetE and Manager:IsReady(_E) and self.CassiopeiaMenu.Combo.UseE:Value() then
@@ -569,10 +569,10 @@ function Cassiopeia:Harass(targetQ, targetW, targetE)
 		end
 	end
 	if targetW and Manager:IsReady(_W) and self.CassiopeiaMenu.Harass.UseW:Value() then
-		local pred = _G.PremiumPrediction:GetAOEPrediction(myHero, targetW, self.W)
-		if pred.CastPos and pred.HitChance >= 0.7 and pred.HitCount >= self.CassiopeiaMenu.Harass.MinW:Value() then
+		local pred = _G.PremiumPrediction:GetPrediction(myHero, targetW, self.W)
+		if pred.PredPos and pred.HitChance >= 0.7 and pred.HitCount >= self.CassiopeiaMenu.Harass.MinW:Value() then
 			self.QueueTimer = GameTimer(); self.WindUp = self.W.windup
-			_G.Control.CastSpell(HK_W, pred.CastPos)
+			_G.Control.CastSpell(HK_W, pred.PredPos)
 		end
 	end
 	if targetE and Manager:IsReady(_E) and self.CassiopeiaMenu.Harass.UseE:Value() then
