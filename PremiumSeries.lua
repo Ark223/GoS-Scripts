@@ -29,7 +29,7 @@ local Versions = {
 -- Init
 
 local MathAbs, MathAtan, MathAtan2, MathAcos, MathCeil, MathCos, MathDeg, MathFloor, MathHuge, MathMax, MathMin, MathPi, MathRad, MathSin, MathSqrt = math.abs, math.atan, math.atan2, math.acos, math.ceil, math.cos, math.deg, math.floor, math.huge, math.max, math.min, math.pi, math.rad, math.sin, math.sqrt
-local DrawCircle, GameCanUseSpell, GameLatency, GameTimer, GameHeroCount, GameHero, GameMinionCount, GameMinion = Draw.Circle, Game.CanUseSpell, Game.Latency, Game.Timer, Game.HeroCount, Game.Hero, Game.MinionCount, Game.Minion
+local DrawCircle, DrawLine, GameCanUseSpell, GameLatency, GameTimer, GameHeroCount, GameHero, GameMinionCount, GameMinion = Draw.Circle, Draw.Line, Game.CanUseSpell, Game.Latency, Game.Timer, Game.HeroCount, Game.Hero, Game.MinionCount, Game.Minion
 local TableInsert, TableRemove, TableSort = table.insert, table.remove, table.sort
 local Icons, Png = "https://raw.githubusercontent.com/Ark223/LoL-Icons/master/", ".png"
 local Allies, Enemies = {}, {}
@@ -434,12 +434,11 @@ end
 
 function Cassiopeia:OnPreMovement(args)
 	return
---[[
+	--[[
 	if GameTimer() - self.QueueTimer < self.WindUp then
 		args.Process = false; return
 	end
-	self.WindUp = 0
---]]
+	self.WindUp = 0 --]]
 end
 
 function Cassiopeia:OnTick()
@@ -467,7 +466,7 @@ function Cassiopeia:OnDraw()
 		for i, enemy in ipairs(Enemies) do
 			if enemy and enemy.valid and enemy.visible then
 				local dist = Geometry:DistanceSquared(self.MyPos, Geometry:To2D(enemy.pos))
-				Draw.Line(myHero.pos:To2D(), enemy.pos:To2D(), 2,
+				DrawLine(myHero.pos:To2D(), enemy.pos:To2D(), 2,
 					dist < 4000000 and Draw.Color(128, 220, 20, 60)
 					or dist < 16000000 and Draw.Color(128, 240, 230, 140)
 					or Draw.Color(128, 152, 251, 152))
