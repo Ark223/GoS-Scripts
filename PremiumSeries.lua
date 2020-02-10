@@ -399,12 +399,10 @@ function Cassiopeia:__init()
 	self.CassiopeiaMenu.Misc:MenuElement({id = "ModeAA", name = "AutoAttacks Disabler", drop = {"Always", "E Is Ready", "On Reached Level", "Toggle Key"}, value = 3})
 	self.CassiopeiaMenu.Misc:MenuElement({id = "Toggle", name = "Toggle Autoattacks", key = string.byte("N")})
 	self.CassiopeiaMenu.Misc:MenuElement({id = "MinLvl", name = "Minimum Level", value = 6, min = 1, max = 18, step = 1})
-	--Callback.Add("Draw", function() self:OnDraw() end)
 	Callback.Add("Tick", function() self:OnTick() end)
 	Callback.Add("Draw", function() self:OnDraw() end)
 	_G.SDK.Orbwalker:OnPreAttack(function(...) self:OnPreAttack(...) end)
 	_G.SDK.Orbwalker:OnPreMovement(function(...) self:OnPreMovement(...) end)
-	_G.SDK.Orbwalker:SetAttack(true)
 end
 
 -- Methods
