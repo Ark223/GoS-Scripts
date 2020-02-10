@@ -11,19 +11,22 @@
 
 	Changelog:
 
+	v1.0.1
+	+ Fixed minor bug
+
 	v1.0
 	+ Initial release [imported Cassiopeia]
 
 --]]
 
-local GlobalVersion = 1.0
+local GlobalVersion = 1.01
 
 local Champions = {
 	["Cassiopeia"] = function() return Cassiopeia:__init() end
 }
 
 local Versions = {
-	["Cassiopeia"] = "1.0"
+	["Cassiopeia"] = "1.0.1"
 }
 
 -- Init
@@ -564,7 +567,7 @@ function Cassiopeia:Combo(targetQ, targetW, targetE, targetR)
 	if targetE and Manager:IsReady(_E) and self.CassiopeiaMenu.Combo.UseE:Value() then
 		local modeE = self.CassiopeiaMenu.Combo.ModeE:Value()
 		if modeE and self:PoisonDuration(targetE) >=
-			self:CalcFangArrivalTime(Geometry:To2D(targetE.pos)) or not modeE then
+			self:CalcFangArrivalTime(targetE) or not modeE then
 				self.QueueTimer = GameTimer(); self.WindUp = self.E.windup
 				_G.Control.CastSpell(HK_E, targetE.pos)
 		end
@@ -600,7 +603,7 @@ function Cassiopeia:Harass(targetQ, targetW, targetE)
 	if targetE and Manager:IsReady(_E) and self.CassiopeiaMenu.Harass.UseE:Value() then
 		local modeE = self.CassiopeiaMenu.Harass.ModeE:Value()
 		if modeE and self:PoisonDuration(targetE) >=
-			self:CalcFangArrivalTime(Geometry:To2D(targetE.pos)) or not modeE then
+			self:CalcFangArrivalTime(targetE) or not modeE then
 				self.QueueTimer = GameTimer(); self.WindUp = self.E.windup
 				_G.Control.CastSpell(HK_E, targetE.pos)
 		end
