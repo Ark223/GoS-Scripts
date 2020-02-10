@@ -344,9 +344,9 @@ function Cassiopeia:__init()
 	self.R = {speed = MathHuge, range = 725, delay = 0.5, radius = 80, angle = 80, windup = 0.5, collision = nil, type = "conic"}
 	self.IsPoison = function(name) return name == "cassiopeiaqdebuff" or name == "cassiopeiawpoison" end
 	self.CassiopeiaMenu = MenuElement({type = MENU, id = "Cassiopeia", name = "Premium Cassiopeia v" .. Versions[myHero.charName]})
-	self.CassiopeiaMenu:MenuElement({id = "Auto", name = "Auto", type = MENU})
-	self.CassiopeiaMenu.Auto:MenuElement({id = "UseQ", name = "Q [Noxious Blast]", value = true, leftIcon = Icons.."CassiopeiaQ"..Png})
-	self.CassiopeiaMenu.Auto:MenuElement({id = "ManaQ", name = "Q: Mana Manager", value = 35, min = 0, max = 100, step = 5})
+	--self.CassiopeiaMenu:MenuElement({id = "Auto", name = "Auto", type = MENU})
+	--self.CassiopeiaMenu.Auto:MenuElement({id = "UseQ", name = "Q [Noxious Blast]", value = true, leftIcon = Icons.."CassiopeiaQ"..Png})
+	--self.CassiopeiaMenu.Auto:MenuElement({id = "ManaQ", name = "Q: Mana Manager", value = 35, min = 0, max = 100, step = 5})
 	self.CassiopeiaMenu:MenuElement({id = "Combo", name = "Combo", type = MENU})
 	self.CassiopeiaMenu.Combo:MenuElement({id = "UseQ", name = "Q [Noxious Blast]", value = true, leftIcon = Icons.."CassiopeiaQ"..Png})
 	self.CassiopeiaMenu.Combo:MenuElement({id = "UseW", name = "W [Miasma]", value = true, leftIcon = Icons.."CassiopeiaW"..Png})
