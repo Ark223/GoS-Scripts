@@ -12,7 +12,7 @@ local function ReadFile(file)
 	txt:close(); return result
 end
 
-local Version, IntVer = 1.05, "1.0.5"
+local Version, IntVer = 1.06, "1.0.6"
 local function AutoUpdate()
 	DownloadFile("https://raw.githubusercontent.com/Ark223/GoS-Scripts/master/PremiumPrediction.version", COMMON_PATH .. "PremiumPrediction.version")
 	if tonumber(ReadFile(COMMON_PATH .. "PremiumPrediction.version")) > Version then
@@ -309,7 +309,7 @@ local PremiumPred = Class()
 function PremiumPred:__init()
 	self.Loaded = false
 	self.Enemies, self.DashCBs, self.GainCBs, self.LoseCBs, self.PsCBs, self.WpCBs = {}, {}, {}, {}, {}, {}
-	self.PPMenu = MenuElement({type = MENU, id = "PremiumPrediction", name = "PremiumPrediction v"..IntVer})
+	self.PPMenu = MenuElement({type = MENU, id = "PremiumPrediction", name = "Premium Prediction v"..IntVer})
 	self.PPMenu:MenuElement({id = "Debug", name = "Debug Settings", type = MENU})
 	self.PPMenu.Debug:MenuElement({id = "Enable", name = "Enable Debug", value = false})
 	self.PPMenu.Debug:MenuElement({id = "Cast", name = "Cast Q Spell", value = true})
@@ -927,12 +927,12 @@ function PremiumPred:GetHitChance(source, unit, castPos, spellData, timeToHit, c
 	local nid = unit.networkID
 	if CustomData[nid] == nil then self:InitCustomData(nid) end
 	local data = CustomData[nid]
-	local sourcePos = IsPoint(source) and self:To2D(source) or self:To2D(source.pos)
-	local castPos, immobileTime = self:To2D(castPos), self:GetImmobileDuration(unit)
-	--local hcRadius = spellData.type == "linear" and spellData.radius * 1.41421356237 or spellData.radius
-	local hitChance = spellData.radius / self:GetMovementSpeed(unit) / MathMax(0, timeToHit - immobileTime)
-	local mod = self:IsMoving(unit) and (1.5 - MathSin(MathRad(data.avgAngle))) * (data.avgMoveClick + 0.5) *
-				(data.avgLength / self:Distance(sourcePos, castPos) + 0.5) or 1
+	local sourcePos, castPos = IsPoint(source) and self:To2D(source) or self:To2D(source.pos), self:To2D(castPos)
+	local immobileTime, moveSpeed = self:GetImmobileDuration(unit), self:GetMovementSpeed(unit)
+	local hcRadius = spellData.type == "conic" and spellData.angle * MathPi or spellData.radius
+	local hitChance = hcRadius / moveSpeed / MathMax(0, timeToHit - immobileTime)
+	local mod = self:IsMoving(unit) and (1.5 - MathSin(MathRad(data.avgAngle))) *
+		(data.avgMoveClick + 0.5) * (data.avgLength / self:Distance(sourcePos, castPos) + 0.5) or 1
 	--local mod = self:IsMoving(unit) and -0.25 * (MathSin(MathRad(data.avgAngle)) - 2) * (data.avgMoveClick + 1) *
 	--			(data.avgLength / self:Distance(sourcePos, castPos) / 2 + 0.5) or 1
 	hitChance = self:IsDashing(unit) and 1 or MathMax(0, MathMin(1, hitChance * mod))
