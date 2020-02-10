@@ -283,7 +283,8 @@ function Manager:CalcPhysicalDamage(source, target, amount)
 end
 
 function Manager:GetSpellCooldown(spell)
-	return GameCanUseSpell(spell) == ONCOOLDOWN and myHero:GetSpellData(spell).currentCd or MathHuge
+	return GameCanUseSpell(spell) == ONCOOLDOWN and myHero:GetSpellData(spell).currentCd or
+			GameCanUseSpell(spell) == READY and 0 or MathHuge
 end
 
 function Manager:GetMinionsAround(pos, range, type)
@@ -312,7 +313,7 @@ function Manager:GetPercentMana()
 end
 
 function Manager:IsReady(spell)
-	return GameCanUseSpell(spell) == 0
+	return GameCanUseSpell(spell) == READY
 end
 
 function Manager:IsValid(unit, range, pos)
