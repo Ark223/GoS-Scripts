@@ -795,8 +795,8 @@ function PremiumPred:GetAOEPrediction(source, unit, spellData)
 			for i, pos in ipairs(positions) do
 				local endPos, count = Point2(sourcePos):Extended(pos, spellData.range), 0
 				for j, candidate in ipairs(candidates) do
-					if spellType == "linear" and self:DistanceSquared(candidate, self:ClosestPointOnSegment(sourcePos, endPos, candidate)) <= ((unit.boundingRadius / 2 or 32) +
-						spellData.radius) ^ 2 or (spellType == "conic" and self:IsPointInArc(sourcePos, candidate, endPos, spellData.range, spellData.angle or 50)) then
+					if spellType == "linear" and self:DistanceSquared(candidate, self:ClosestPointOnSegment(sourcePos, endPos, candidate)) <= spellData.radius *
+						spellData.radius or (spellType == "conic" and self:IsPointInArc(sourcePos, candidate, endPos, spellData.range, spellData.angle or 50)) then
 						count = count + 1
 					end
 				end
@@ -885,7 +885,7 @@ function PremiumPred:PredictUnitPosition(source, unit, spellData)
 		output.CastPos, output.PredPos = unitPos, unitPos
 	else
 		if #waypoints == 0 then waypoints = self:GetWaypoints(unit) end
-		local threshold = ((unit.boundingRadius / 2 or 32) + spellData.radius - 1) / moveSpeed
+		local threshold = (spellData.radius - 1) / moveSpeed
 		local delay = (spellData.delay + self.PPMenu.Latency:Value() / 2000 + 0.07)
 		if spellData.speed == MathHuge then
 			output.PredPos = self:GetPositionAfter(waypoints, moveSpeed, delay)
