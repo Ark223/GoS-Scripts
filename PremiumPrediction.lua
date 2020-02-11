@@ -12,7 +12,7 @@ local function ReadFile(file)
 	txt:close(); return result
 end
 
-local Version, IntVer = 1.06, "1.0.6"
+local Version, IntVer = 1.07, "1.0.7"
 local function AutoUpdate()
 	DownloadFile("https://raw.githubusercontent.com/Ark223/GoS-Scripts/master/PremiumPrediction.version", COMMON_PATH .. "PremiumPrediction.version")
 	if tonumber(ReadFile(COMMON_PATH .. "PremiumPrediction.version")) > Version then
@@ -25,6 +25,7 @@ end
 local MathAbs, MathAtan, MathAtan2, MathAcos, MathCeil, MathCos, MathDeg, MathFloor, MathHuge, MathMax, MathMin, MathPi, MathRad, MathSin, MathSqrt = math.abs, math.atan, math.atan2, math.acos, math.ceil, math.cos, math.deg, math.floor, math.huge, math.max, math.min, math.pi, math.rad, math.sin, math.sqrt
 local DrawCircle, GameCanUseSpell, GameLatency, GameTimer, GameHeroCount, GameHero, GameMinionCount, GameMinion, GameMissileCount, GameMissile = Draw.Circle, Game.CanUseSpell, Game.Latency, Game.Timer, Game.HeroCount, Game.Hero, Game.MinionCount, Game.Minion, Game.MissileCount, Game.Missile
 local TableInsert, TableRemove, TableSort = table.insert, table.remove, table.sort
+require "2DGeometry"
 require "MapPositionGOS"
 
 local CCBuffs, CustomData = {5, 8, 11, 18, 21, 22, 24, 28, 29}, {}
@@ -564,7 +565,7 @@ function PremiumPred:IsPointInArc(sourcePos, unitPos, endPos, range, angle)
 	local unitPos = IsVector(unitPos) and self:To2D(unitPos) or unitPos
 	local endPos = IsVector(endPos) and self:To2D(endPos) or endPos
 	local angle = MathRad(angle) / 2
-	local a, b = Point2(startPos - unitPos), Point2(startPos - endPos)
+	local a, b = Point2(sourcePos - unitPos), Point2(sourcePos - endPos)
 	local c = self:Magnitude(b); local d = self:DotProduct(a, b) / c
 	local inf = d / self:Magnitude(a) <= MathCos(angle)
 	if inf then return false end
@@ -770,7 +771,7 @@ end
 function PremiumPred:GetPrediction(source, unit, spellData)
 	local result = self:IsDashing(unit) and self:GetDashPrediction(source, unit, spellData) or self:PredictUnitPosition(source, unit, spellData)
 	local hitChance = self:GetHitChance(source, unit, result.CastPos, spellData, result.TimeToHit, result.CanHit)
-	return {CastPos = result.CastPos, PredPos = result.PredPos, HitChance = hitChance, TimeToHit = result.TimeToHit}
+	return {CastPos = result.CastPos, PredPos = result.PredPos, HitChance = hitChance, HitCount = hitChance > 0 and 1 or 0, TimeToHit = result.TimeToHit}
 end
 
 function PremiumPred:GetAOEPrediction(source, unit, spellData)
