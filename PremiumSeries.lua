@@ -11,6 +11,9 @@
 
 	Changelog:
 
+	v1.0.3
+	+ Added Xerath
+
 	v1.0.2
 	+ Fixed all bugs in Cassiopeia
 
@@ -22,22 +25,22 @@
 
 --]]
 
-local GlobalVersion = 1.02
+local GlobalVersion = 1.03
 
 local Champions = {
 	["Cassiopeia"] = function() return Cassiopeia:__init() end,
-	["Xerath"] = function() return end
+	["Xerath"] = function() return Xerath:__init() end
 }
 
 local Versions = {
 	["Cassiopeia"] = "1.0.2",
-	["Xerath"] = ""
+	["Xerath"] = "1.0"
 }
 
 -- Init
 
 local MathAbs, MathAtan, MathAtan2, MathAcos, MathCeil, MathCos, MathDeg, MathFloor, MathHuge, MathMax, MathMin, MathPi, MathRad, MathRandom, MathSin, MathSqrt = math.abs, math.atan, math.atan2, math.acos, math.ceil, math.cos, math.deg, math.floor, math.huge, math.max, math.min, math.pi, math.rad, math.random, math.sin, math.sqrt
-local ControlIsKeyDown, ControlKeyUp, DrawCircle, DrawLine, GameCanUseSpell, GameLatency, GameTimer, GameHeroCount, GameHero, GameMinionCount, GameMinion = Control.IsKeyDown, Control.KeyUp, Draw.Circle, Draw.Line, Game.CanUseSpell, Game.Latency, Game.Timer, Game.HeroCount, Game.Hero, Game.MinionCount, Game.Minion
+local ControlIsKeyDown, ControlKeyDown, ControlKeyUp, DrawCircle, DrawLine, GameCanUseSpell, GameLatency, GameTimer, GameHeroCount, GameHero, GameMinionCount, GameMinion = Control.IsKeyDown, Control.KeyDown, Control.KeyUp, Draw.Circle, Draw.Line, Game.CanUseSpell, Game.Latency, Game.Timer, Game.HeroCount, Game.Hero, Game.MinionCount, Game.Minion
 local TableInsert, TableRemove, TableSort = table.insert, table.remove, table.sort
 local Icons, Png = "https://raw.githubusercontent.com/Ark223/LoL-Icons/master/", ".png"
 local Allies, Enemies = {}, {}
@@ -336,6 +339,13 @@ function Manager:CalcPhysicalDamage(source, target, amount)
 	if armor < 0 then value = 2 - 100 / (100 - armor)
 	elseif (armor * armorPenPercent) - (bonusArmor * (1 - bonusArmorPenPercent)) - armorPenFlat < 0 then value = 1 end
 	return MathMax(0, MathFloor(value * amount))
+end
+
+function Manager:CopyTable(tab)
+	local copy = {}
+	for key, val in pairs(tab) do
+		copy[key] = val end
+	return copy
 end
 
 function Manager:GetSpellCooldown(spell)
@@ -645,11 +655,12 @@ end
 class "Xerath"
 
 function Xerath:__init()
-	self.ActiveQ, self.ActiveR, self.InitChargeTimer, self.QueueTimer = false, false, 0, 0
+	self.ActiveQ, self.ActiveR, self.InitChargeTimer, self.QueueTimer, self.SearchTimer, self.Killable = false, false, 0, 0, 0, {}
 	self.Q = {speed = MathHuge, minRange = 750, range = 1500, delay = 0.5, radius = 90, collision = nil, type = "linear"}
 	self.W = {speed = MathHuge, range = 1000, delay = 0.75, radius = 235, collision = nil, type = "circular"}
 	self.E = {speed = 1400, range = 1050, delay = 0.2, radius = 60, collision = {"minion"}, type = "linear"}
 	self.R = {speed = MathHuge, range = 5000, delay = 0.7, radius = 200, collision = nil, type = "circular"}
+	self.XerathMenu = MenuElement({type = MENU, id = "Xerath", name = "Premium Xerath v" .. Versions[myHero.charName]})
 	self.XerathMenu:MenuElement({id = "Auto", name = "Auto", type = MENU})
 	self.XerathMenu.Auto:MenuElement({id = "UseR", name = "R [Rite of the Arcane]", value = true, leftIcon = Icons.."XerathR"..Png})
 	self.XerathMenu:MenuElement({id = "Combo", name = "Combo", type = MENU})
@@ -670,7 +681,7 @@ function Xerath:__init()
 	self.XerathMenu.Drawings:MenuElement({id = "DrawR", name = "R: Draw Range", value = true})
 	self.XerathMenu.Drawings:MenuElement({id = "Track", name = "Track Enemies", value = true})
 	Callback.Add("Tick", function() self:OnTick() end)
-	--Callback.Add("Draw", function() self:OnDraw() end)
+	Callback.Add("Draw", function() self:OnDraw() end)
 	_G.SDK.Orbwalker:OnPreAttack(function(...) self:OnPreAttack(...) end)
 	_G.SDK.Orbwalker:OnPreMovement(function(...) self:OnPreMovement(...) end)
 end
@@ -709,6 +720,35 @@ function Xerath:IsArcaneActive()
 	return false
 end
 
+function Xerath:SearchKillable()
+	if GameTimer() - self.SearchTimer < 1 then return end
+	local lvl, killable = myHero:GetSpellData(_R).level or 1, {}
+	for i, enemy in ipairs(Enemies) do
+		if enemy and enemy.valid and enemy.visible then
+			local rawDmg = 40 * lvl + 150 + (0.43 * myHero.ap)
+			local dmg = (lvl + 2) * Manager:CalcMagicalDamage(myHero, enemy, rawDmg)
+			if enemy.health < dmg then TableInsert(killable, enemy.charName) end
+		end
+	end
+	if #killable > 0 then
+		local newTargets = false
+		if #self.Killable == #killable then
+			for i, enemy in ipairs(killable) do
+				if self.Killable[i] ~= killable[i] then
+					newTargets = true; break
+				end
+			end
+		else
+			newTargets = true
+		end
+		if newTargets then
+			self.Killable = Manager:CopyTable(killable)
+			print("[" .. MathFloor(GameTimer()) .. "] Killable with R: " .. table.concat(killable, ", "))
+		end
+	else self.Killable = {} end
+	self.SearchTimer = GameTimer()
+end
+
 function Xerath:OnPreAttack(args)
 	if self.ActiveQ or self.ActiveR then
 		args.Process = false; return
@@ -722,7 +762,7 @@ end
 function Xerath:OnTick()
 	self.MyPos = Geometry:To2D(myHero.pos)
 	if ControlIsKeyDown(HK_Q) and
-		Manager:GetSpellCooldown(_Q) > 0 then
+		myHero:GetSpellData(spell).currentCd > 1 then
 			ControlKeyUp(HK_Q)
 	end
 	if _G.JustEvade and _G.JustEvade:Evading() or (_G.ExtLibEvade and _G.ExtLibEvade.Evading) or
@@ -733,9 +773,9 @@ function Xerath:OnTick()
 	elseif self.ActiveQ and not charging then
 		self.ActiveQ = false
 	end
-	if Manager:IsReady(_R) and self:IsArcaneActive()
-		and self.XerathMenu.Auto.UseR:Value() then
-			self:AutoR(); return
+	if Manager:IsReady(_R) and self.XerathMenu.Auto.UseR:Value() then
+		if self:IsArcaneActive() then self:AutoR(); return end
+		self:SearchKillable()
 	end
 	local mode = Manager:GetOrbwalkerMode()
 	if mode == "Clear" then self:Clear(); return end
@@ -743,12 +783,40 @@ function Xerath:OnTick()
 	if mode == "Combo" or mode == "Harass" then self:Action(mode, tQ, tWE) end
 end
 
+function Xerath:OnDraw()
+	if Game.IsChatOpen() or myHero.dead then return end
+	if self.XerathMenu.Drawings.DrawQ:Value() then
+		DrawCircle(myHero.pos, self.Q.range, 1, Draw.Color(96, 0, 191, 255))
+	end
+	if self.XerathMenu.Drawings.DrawW:Value() then
+		DrawCircle(myHero.pos, self.W.range, 1, Draw.Color(96, 30, 144, 255))
+	end
+	if self.XerathMenu.Drawings.DrawE:Value() then
+		DrawCircle(myHero.pos, self.E.range, 1, Draw.Color(96, 100, 149, 237))
+	end
+	if self.XerathMenu.Drawings.DrawR:Value() and Manager:IsReady(_R) then
+		Draw.CircleMinimap(myHero.pos, self.R.range, 1.5, Draw.Color(224, 0, 0, 205))
+	end
+	if not self.MyPos then return end
+	if self.XerathMenu.Drawings.Track:Value() then
+		for i, enemy in ipairs(Enemies) do
+			if enemy and enemy.valid and enemy.visible then
+				local dist = Geometry:DistanceSquared(self.MyPos, Geometry:To2D(enemy.pos))
+				DrawLine(myHero.pos:To2D(), enemy.pos:To2D(), 2,
+					dist < 4000000 and Draw.Color(128, 220, 20, 60)
+					or dist < 16000000 and Draw.Color(128, 240, 230, 140)
+					or Draw.Color(128, 152, 251, 152))
+			end
+		end
+	end
+end
+
 function Xerath:AutoR()
 	local targetR = self:GetTarget(self.R.range)
-	if targetR == nil or GameTimer() - self.QueueTimer < 0.5 then return end
+	if targetR == nil or GameTimer() - self.QueueTimer < 0.75 then return end
 	local pred = _G.PremiumPrediction:GetPrediction(myHero, targetR, self.R)
-	if pred.CastPos and pred.HitChance > 0.3 then
-		local pos = pred.CastPos:ToMM()
+	if pred.CastPos and pred.HitChance > 0.4 then
+		local pos = Vector(pred.CastPos):ToMM()
 		Control.SetCursorPos(pos.x, pos.y)
 		Control.KeyDown(HK_R); Control.KeyUp(HK_R)
 		self.QueueTimer = GameTimer() + MathRandom(-250, 250) / 1000
@@ -756,15 +824,19 @@ function Xerath:AutoR()
 end
 
 function Xerath:Clear()
+	if GameTimer() - self.QueueTimer < 0.25 then return end
 	if Manager:IsReady(_Q) and self.XerathMenu.LaneClear.UseQ:Value() then
 		local minions, points = Manager:GetMinionsAround(self.MyPos, self.Q.range), {}
+		if #minions < 6 then return end
 		for i, minion in ipairs(minions) do
 			local predPos = _G.PremiumPrediction:GetFastPrediction(myHero, minion, self.Q)
 			if predPos then TableInsert(points, Geometry:To2D(predPos)) end
 		end
 		local pos, count = Geometry:GetLinearAOEPos(points, self.Q.range, self.Q.radius)
-		if not self.ActiveQ and count >= 5 then ControlKeyDown(HK_Q); return end
-		if (GameTimer() - self.InitChargeTimer) * 500 + self.Q.minRange >= self.Q.range - 100 then
+		if not self.ActiveQ then
+			if count >= 6 then ControlKeyDown(HK_Q); self.QueueTimer = GameTimer() end; return
+		end
+		if pos and (GameTimer() - self.InitChargeTimer) * 500 + self.Q.minRange >= self.Q.range - 100 then
 			_G.Control.CastSpell(HK_Q, Geometry:To3D(pos))
 			self.QueueTimer = GameTimer()
 		end
@@ -772,9 +844,16 @@ function Xerath:Clear()
 end
 
 function Xerath:Action(mode, targetQ, targetWE)
-	if GameTimer() - self.QueueTimer < 0.4 then return end
+	if targetQ == nil or GameTimer() - self.QueueTimer < 0.25 then return end
+	if targetWE and Manager:IsReady(_W) and (mode == "Combo" and self.XerathMenu.Combo.UseW:Value() or self.XerathMenu.Harass.UseW:Value()) then
+		local pred = _G.PremiumPrediction:GetAOEPrediction(myHero, targetWE, self.W)
+		if pred.CastPos and pred.HitChance > 0.2 then
+			self.QueueTimer = GameTimer()
+			_G.Control.CastSpell(HK_W, pred.CastPos)
+		end
+	end
 	if targetQ and Manager:IsReady(_Q) and (mode == "Combo" and self.XerathMenu.Combo.UseQ:Value() or self.XerathMenu.Harass.UseQ:Value()) then
-		if not self.ActiveQ then ControlKeyDown(HK_Q); return end
+		if not self.ActiveQ then ControlKeyDown(HK_Q); self.QueueTimer = GameTimer(); return end
 		local range = (GameTimer() - self.InitChargeTimer) * 500 + self.Q.minRange
 		local dist = Geometry:Distance(self.MyPos, Geometry:To2D(targetQ.pos))
 		if range >= self.Q.range then
@@ -784,25 +863,17 @@ function Xerath:Action(mode, targetQ, targetWE)
 				self.QueueTimer = GameTimer()
 			end
 		elseif range >= dist then
-			local moveSpeed = unit.ms or 315
+			local moveSpeed = targetQ.ms or 315
 			DelayAction(function()
 				local pred = _G.PremiumPrediction:GetAOEPrediction(myHero, targetQ, self.Q)
-				if pred.CastPos and pred.HitChance > 0 then
+				if pred.CastPos and pred.HitChance > 0.3 then
 					_G.Control.CastSpell(HK_Q, pred.CastPos)
 					self.QueueTimer = GameTimer()
 				end
-			end, moveSpeed >= 500 and 1 or self.Q.delay * moveSpeed / (500 - moveSpeed))
+			end, moveSpeed >= 500 and 1 or moveSpeed * self.Q.delay / 500)
 		end
 	end
-	if targetWE == nil then return end
-	if Manager:IsReady(_W) and (mode == "Combo" and self.XerathMenu.Combo.UseW:Value() or self.XerathMenu.Harass.UseW:Value()) then
-		local pred = _G.PremiumPrediction:GetAOEPrediction(myHero, targetWE, self.W)
-		if pred.CastPos and pred.HitChance >= 0.2 then
-			self.QueueTimer = GameTimer()
-			_G.Control.CastSpell(HK_W, pred.CastPos)
-		end
-	end
-	if Manager:IsReady(_E) and (mode == "Combo" and self.XerathMenu.Combo.UseE:Value() or self.XerathMenu.Harass.UseE:Value()) then
+	if targetWE and Manager:IsReady(_E) and (mode == "Combo" and self.XerathMenu.Combo.UseE:Value() or self.XerathMenu.Harass.UseE:Value()) then
 		local pred = _G.PremiumPrediction:GetPrediction(myHero, targetWE, self.E)
 		if pred.CastPos and pred.HitChance >= 0.7 then
 			self.QueueTimer = GameTimer()
