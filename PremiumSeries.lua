@@ -725,7 +725,7 @@ function Xerath:SearchKillable()
 	local lvl, killable = myHero:GetSpellData(_R).level or 1, {}
 	for i, enemy in ipairs(Enemies) do
 		if enemy and enemy.valid and enemy.visible then
-			local rawDmg = 40 * lvl + 150 + (0.43 * myHero.ap)
+			local rawDmg = 40 * lvl + 160 + (0.43 * myHero.ap)
 			local dmg = (lvl + 2) * Manager:CalcMagicalDamage(myHero, enemy, rawDmg)
 			if enemy.health < dmg then TableInsert(killable, enemy.charName) end
 		end
