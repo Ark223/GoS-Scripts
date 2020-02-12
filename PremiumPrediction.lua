@@ -308,7 +308,7 @@ end
 local PremiumPred = Class()
 
 function PremiumPred:__init()
-	self.Loaded = false
+	self.Loaded, self.Pi2 = false, 1.57079632679
 	self.Enemies, self.DashCBs, self.GainCBs, self.LoseCBs, self.PsCBs, self.WpCBs = {}, {}, {}, {}, {}, {}
 	self.PPMenu = MenuElement({type = MENU, id = "PremiumPrediction", name = "Premium Prediction v"..IntVer})
 	self.PPMenu:MenuElement({id = "Debug", name = "Debug Settings", type = MENU})
@@ -930,7 +930,7 @@ function PremiumPred:GetHitChance(source, unit, castPos, spellData, timeToHit, c
 	local data = CustomData[nid]
 	local sourcePos, castPos = IsPoint(source) and self:To2D(source) or self:To2D(source.pos), self:To2D(castPos)
 	local immobileTime, moveSpeed = self:GetImmobileDuration(unit), self:GetMovementSpeed(unit)
-	local hcRadius = spellData.type == "conic" and spellData.angle * MathPi or spellData.radius
+	local hcRadius = spellData.type == "conic" and spellData.angle * self.Pi2 or spellData.radius
 	local hitChance = hcRadius / moveSpeed / MathMax(0, timeToHit - immobileTime)
 	local mod = self:IsMoving(unit) and (1.5 - MathSin(MathRad(data.avgAngle))) *
 		(data.avgMoveClick + 0.5) * (data.avgLength / self:Distance(sourcePos, castPos) + 0.5) or 1
