@@ -11,36 +11,49 @@
 
 	Changelog:
 
+	v1.0.4
+	+ Added Viktor
+	+ Added HitChance setup to settings
+	+ Xerath:
+	 - Added Q casting in FOW
+	 - Fixed mana check and improved LaneClear
+	 - Fixed bug related to Q pressed by core
+
 	v1.0.3
 	+ Added Xerath
 
 	v1.0.2
-	+ Fixed all bugs in Cassiopeia
+	+ Cassiopeia:
+	 - Fixed all bugs
 
 	v1.0.1
-	+ Fixed minor bug
+	+ Cassiopeia:
+	 - Fixed minor bug
 
 	v1.0
-	+ Initial release [imported Cassiopeia]
+	+ Initial release:
+	 - imported Cassiopeia
 
 --]]
 
-local GlobalVersion = 1.03
+local GlobalVersion = 1.04
 
 local Champions = {
 	["Cassiopeia"] = function() return Cassiopeia:__init() end,
+	["Viktor"] = function() return Viktor:__init() end,
 	["Xerath"] = function() return Xerath:__init() end
 }
 
 local Versions = {
-	["Cassiopeia"] = "1.0.2",
-	["Xerath"] = "1.0"
+	["Cassiopeia"] = "1.0.3",
+	["Viktor"] = "1.0",
+	["Xerath"] = "1.0.2"
 }
 
 -- Init
 
 local MathAbs, MathAtan, MathAtan2, MathAcos, MathCeil, MathCos, MathDeg, MathFloor, MathHuge, MathMax, MathMin, MathPi, MathRad, MathRandom, MathSin, MathSqrt = math.abs, math.atan, math.atan2, math.acos, math.ceil, math.cos, math.deg, math.floor, math.huge, math.max, math.min, math.pi, math.rad, math.random, math.sin, math.sqrt
-local ControlIsKeyDown, ControlKeyDown, ControlKeyUp, DrawCircle, DrawLine, GameCanUseSpell, GameLatency, GameTimer, GameHeroCount, GameHero, GameMinionCount, GameMinion = Control.IsKeyDown, Control.KeyDown, Control.KeyUp, Draw.Circle, Draw.Line, Game.CanUseSpell, Game.Latency, Game.Timer, Game.HeroCount, Game.Hero, Game.MinionCount, Game.Minion
+local ControlIsKeyDown, ControlKeyDown, ControlKeyUp, ControlSetCursorPos, DrawCircle, DrawLine, GameCanUseSpell, GameLatency, GameTimer, GameHeroCount, GameHero, GameMinionCount, GameMinion = Control.IsKeyDown, Control.KeyDown, Control.KeyUp, Control.SetCursorPos, Draw.Circle, Draw.Line, Game.CanUseSpell, Game.Latency, Game.Timer, Game.HeroCount, Game.Hero, Game.MinionCount, Game.Minion
 local TableInsert, TableRemove, TableSort = table.insert, table.remove, table.sort
 local Icons, Png = "https://raw.githubusercontent.com/Ark223/LoL-Icons/master/", ".png"
 local Allies, Enemies = {}, {}
@@ -101,6 +114,14 @@ local Priorities = {
 	["Twitch"] = 5, ["Udyr"] = 2, ["Urgot"] = 2, ["Varus"] = 5, ["Vayne"] = 5, ["Veigar"] = 4, ["Velkoz"] = 4, ["Vi"] = 2, ["Viktor"] = 4, ["Vladimir"] = 3, ["Volibear"] = 2,
 	["Warwick"] = 2, ["Xayah"] = 5, ["Xerath"] = 4, ["XinZhao"] = 3, ["Yasuo"] = 4, ["Yorick"] = 2, ["Yuumi"] = 2, ["Zac"] = 1, ["Zed"] = 4, ["Ziggs"] = 4, ["Zilean"] = 3,
 	["Zoe"] = 4, ["Zyra"] = 2
+}
+
+local InterrupterSpells = {
+	["Caitlyn"] = {["CaitlynAceintheHole"] = 3}, ["FiddleSticks"] = {["Drain"] = 2}, ["Galio"] = {["GalioW"] = 1, ["GalioR"] = 3}, ["Gragas"] = {["GragasW"] = 1},
+	["Janna"] = {["ReapTheWhirlwind"] = 3}, ["Karthus"] = {["KarthusFallenOne"] = 3}, ["Katarina"] = {["KatarinaR"] = 3}, ["Malzahar"] = {["AlZaharNetherGrasp"] = 3},
+	["MasterYi"] = {["Meditate"] = 1}, ["MissFortune"] = {["MissFortuneBulletTime"] = 3}, ["Nunu"] = {["NunuR"] = 3}, ["Pantheon"] = {["PantheonQ"] = 1, ["PantheonR"] = 3},
+	["Pyke"] = {["PykeQ"] = 2}, ["Shen"] = {["ShenR"] = 3}, ["Sion"] = {["SionQ"] = 2}, ["TwistedFate"] = {["Destiny"] = 3}, ["Varus"] = {["VarusQ"] = 1},
+	["Vi"] = {["ViQ"] = 2}, ["Velkoz"] = {["VelkozR"] = 3}, ["Warwick"] = {["WarwickR"] = 3}, ["Xerath"] = {["XerathLocusOfPower2"] = 3}, ["Zac"] = {["ZacR"] = 3}
 }
 
 --[[
@@ -241,10 +262,6 @@ function Geometry:CrossProduct(p1, p2)
 end
 
 function Geometry:Distance(p1, p2)
-	if not p1.x or not p2.x then
-		local dInfo = debug.getinfo(2)
-		print("Error detected! Please report to author! Method: " .. dInfo.name .. "  Line: " .. dInfo.linedefined)
-	end
 	return MathSqrt(self:DistanceSquared(p1, p2))
 end
 
@@ -279,11 +296,45 @@ function Geometry:GetCircularAOEPos(points, radius)
 	end
 end
 
-function Geometry:GetLinearAOEPos(points, range, radius)
-	local bestPos, bestCount, count = PPoint(0, 0), 0, #points
+function Geometry:GetDynamicLinearAOEPos(points, minRange, maxRange, radius)
+	local count = #points
+	if count == 0 then return nil, nil, 0 end
+	if count == 1 then return points[1], points[1], 1 end
+	local myPos, bestStartPos, bestEndPos, bestCount, candidates =
+		self:To2D(myHero.pos), PPoint(0, 0), PPoint(0, 0), 0, {}
+	for i, p1 in ipairs(points) do
+		TableInsert(candidates, p1)
+		for j, p2 in ipairs(points) do
+			if i ~= j then TableInsert(candidates, PPoint(p1 + p2) / 2) end
+		end
+	end
+	local diffRange = maxRange - minRange
+	for i, point in ipairs(points) do
+		if Geometry:DistanceSquared(myPos, point) <= minRange * minRange then
+			for j, candidate in ipairs(candidates) do
+				if Geometry:DistanceSquared(candidate, point) <= diffRange * diffRange then
+					local endPos, hitCount = PPoint(point):Extended(candidate, diffRange), 0
+					for k, testPoint in ipairs(points) do
+						if self:DistanceSquared(testPoint, self:ClosestPointOnSegment(
+							myPos, endPos, testPoint)) < radius * radius then hitCount = hitCount + 1
+						end
+					end
+					if hitCount > bestCount then
+						bestStartPos, bestEndPos, bestCount = point, endPos, hitCount
+					end
+				end
+			end
+		end
+	end
+	return bestStartPos, bestEndPos, bestCount
+end
+
+function Geometry:GetStaticLinearAOEPos(points, range, radius)
+	local count = #points
 	if count == 0 then return nil, 0 end
 	if count == 1 then return points[1], 1 end
-	local startPos, candidates = self:To2D(myHero.pos), {}
+	local myPos, bestPos, bestCount, candidates =
+		self:To2D(myHero.pos), PPoint(0, 0), 0, {}
 	for i, p1 in ipairs(points) do
 		TableInsert(candidates, p1)
 		for j, p2 in ipairs(points) do
@@ -291,10 +342,10 @@ function Geometry:GetLinearAOEPos(points, range, radius)
 		end
 	end
 	for i, candidate in ipairs(candidates) do
-		local endPos, hitCount = PPoint(startPos):Extended(candidate, range), 0
+		local endPos, hitCount = PPoint(myPos):Extended(candidate, range), 0
 		for j, point in ipairs(points) do
 			if self:DistanceSquared(point, self:ClosestPointOnSegment(
-				startPos, endPos, point)) < radius * radius then hitCount = hitCount + 1
+				myPos, endPos, point)) < radius * radius then hitCount = hitCount + 1
 			end
 		end
 		if hitCount > bestCount then
@@ -348,6 +399,16 @@ function Manager:CopyTable(tab)
 	return copy
 end
 
+function Manager:GetEnemiesAround(pos, range)
+	local units = {}
+	for i, enemy in ipairs(Enemies) do
+		if enemy and self:IsValid(enemy, range, pos) then
+			TableInsert(units, enemy)
+		end
+	end
+	return units
+end
+
 function Manager:GetSpellCooldown(spell)
 	return GameCanUseSpell(spell) == ONCOOLDOWN and myHero:GetSpellData(spell).currentCd or
 			GameCanUseSpell(spell) == READY and 0 or MathHuge
@@ -374,13 +435,18 @@ function Manager:GetOrbwalkerMode()
 		or nil
 end
 
+function Manager:GetPercentHealth(unit)
+	return 100 * unit.health / unit.maxHealth
+end
+
 function Manager:GetPercentMana()
 	return 100 * myHero.mana / myHero.maxMana
 end
 
 function Manager:GetPriority(unit)
 	local priority = Priorities[unit.charName] or 3
-	return priority == 2 and 1.5 or
+	return priority == 1 and 1 or
+		priority == 2 and 1.5 or
 		priority == 3 and 1.75 or
 		priority == 4 and 2 or 2.5
 end
@@ -395,7 +461,6 @@ function Manager:IsValid(unit, range, pos)
 	return unit and
 		unit.valid and
 		unit.visible and
-		not unit.dead and
 		unit.health > 0 and
 		unit.maxHealth > 5 and
 		Geometry:DistanceSquared(pos, Geometry:To2D(unit.pos)) <= range * range
@@ -417,9 +482,6 @@ function Cassiopeia:__init()
 	self.R = {speed = MathHuge, range = 725, delay = 0.5, radius = 80, angle = 80, windup = 0.5, collision = nil, type = "conic"}
 	self.IsPoison = function(name) return name == "cassiopeiaqdebuff" or name == "cassiopeiawpoison" end
 	self.CassiopeiaMenu = MenuElement({type = MENU, id = "Cassiopeia", name = "Premium Cassiopeia v" .. Versions[myHero.charName]})
-	--self.CassiopeiaMenu:MenuElement({id = "Auto", name = "Auto", type = MENU})
-	--self.CassiopeiaMenu.Auto:MenuElement({id = "UseQ", name = "Q [Noxious Blast]", value = true, leftIcon = Icons.."CassiopeiaQ"..Png})
-	--self.CassiopeiaMenu.Auto:MenuElement({id = "ManaQ", name = "Q: Mana Manager", value = 35, min = 0, max = 100, step = 5})
 	self.CassiopeiaMenu:MenuElement({id = "Combo", name = "Combo", type = MENU})
 	self.CassiopeiaMenu.Combo:MenuElement({id = "UseQ", name = "Q [Noxious Blast]", value = true, leftIcon = Icons.."CassiopeiaQ"..Png})
 	self.CassiopeiaMenu.Combo:MenuElement({id = "UseW", name = "W [Miasma]", value = true, leftIcon = Icons.."CassiopeiaW"..Png})
@@ -444,6 +506,10 @@ function Cassiopeia:__init()
 	self.CassiopeiaMenu.Drawings:MenuElement({id = "DrawQ", name = "Q: Draw Range", value = true})
 	self.CassiopeiaMenu.Drawings:MenuElement({id = "DrawE", name = "E: Draw Range", value = true})
 	self.CassiopeiaMenu.Drawings:MenuElement({id = "Track", name = "Track Enemies", value = true})
+	self.CassiopeiaMenu:MenuElement({id = "HitChance", name = "HitChance", type = MENU})
+	self.CassiopeiaMenu.HitChance:MenuElement({id = "HCQ", name = "Q: HitChance", value = 30, min = 0, max = 100, step = 5})
+	self.CassiopeiaMenu.HitChance:MenuElement({id = "HCW", name = "W: HitChance", value = 60, min = 0, max = 100, step = 5})
+	self.CassiopeiaMenu.HitChance:MenuElement({id = "HCR", name = "R: HitChance", value = 80, min = 0, max = 100, step = 5})
 	self.CassiopeiaMenu:MenuElement({id = "Misc", name = "Misc", type = MENU})
 	self.CassiopeiaMenu.Misc:MenuElement({id = "ModeAA", name = "AutoAttacks Disabler", drop = {"Always", "E Is Ready", "On Reached Level", "Toggle Key"}, value = 4})
 	self.CassiopeiaMenu.Misc:MenuElement({id = "Toggle", name = "Toggle Autoattacks", key = string.byte("N")})
@@ -587,17 +653,18 @@ function Cassiopeia:Combo(targetQ, targetW, targetE, targetR)
 		local modeQ = self.CassiopeiaMenu.Combo.ModeQ:Value()
 		if modeQ and self:PoisonDuration(targetQ) < self.Q.delay or not modeQ then
 			local pred = _G.PremiumPrediction:GetAOEPrediction(myHero, targetQ, self.Q)
-			if pred.CastPos and pred.HitChance >= 0.3 then
+			if pred.CastPos and pred.HitChance >= self.CassiopeiaMenu.HitChance.HCQ:Value() / 1000 then
 				self.QueueTimer = GameTimer(); self.WindUp = self.Q.windup
 				_G.Control.CastSpell(HK_Q, pred.CastPos)
 			end
 		end
 	end
 	if targetW and Manager:IsReady(_W) and self.CassiopeiaMenu.Combo.UseW:Value() then
-		local pred = _G.PremiumPrediction:GetPrediction(myHero, targetW, self.W)
-		if pred.PredPos and pred.HitChance >= 0.6 and pred.HitCount >= self.CassiopeiaMenu.Combo.MinW:Value() then
-			self.QueueTimer = GameTimer(); self.WindUp = self.W.windup
-			_G.Control.CastSpell(HK_W, pred.PredPos)
+		local pred = _G.PremiumPrediction:GetAOEPrediction(myHero, targetW, self.W)
+		if pred.CastPos and pred.HitChance >= self.CassiopeiaMenu.HitChance.HCW:Value() / 1000 and
+			pred.HitCount >= self.CassiopeiaMenu.Combo.MinW:Value() then
+				self.QueueTimer = GameTimer(); self.WindUp = self.W.windup
+				_G.Control.CastSpell(HK_W, pred.CastPos)
 		end
 	end
 	if targetE and Manager:IsReady(_E) and self.CassiopeiaMenu.Combo.UseE:Value() then
@@ -610,9 +677,10 @@ function Cassiopeia:Combo(targetQ, targetW, targetE, targetR)
 	end
 	if targetR and Manager:IsReady(_R) and self.CassiopeiaMenu.Combo.UseR:Value() and _G.PremiumPrediction:IsFacing(targetR, myHero) then
 		local pred = _G.PremiumPrediction:GetAOEPrediction(myHero, targetR, self.R)
-		if pred.CastPos and pred.HitChance >= 0.8 and pred.HitCount >= self.CassiopeiaMenu.Combo.MinR:Value() then
-			self.QueueTimer = GameTimer(); self.WindUp = self.R.windup
-			_G.Control.CastSpell(HK_R, pred.CastPos)
+		if pred.CastPos and pred.HitChance >= self.CassiopeiaMenu.HitChance.HCR:Value() / 1000 and
+			pred.HitCount >= self.CassiopeiaMenu.Combo.MinR:Value() then
+				self.QueueTimer = GameTimer(); self.WindUp = self.R.windup
+				_G.Control.CastSpell(HK_R, pred.CastPos)
 		end
 	end
 end
@@ -623,17 +691,18 @@ function Cassiopeia:Harass(targetQ, targetW, targetE)
 		local modeQ = self.CassiopeiaMenu.Harass.ModeQ:Value()
 		if modeQ and self:PoisonDuration(targetQ) < self.Q.delay or not modeQ then
 			local pred = _G.PremiumPrediction:GetAOEPrediction(myHero, targetQ, self.Q)
-			if pred.CastPos and pred.HitChance >= 0.4 then
+			if pred.CastPos and pred.HitChance >= self.CassiopeiaMenu.HitChance.HCQ:Value() / 1000 then
 				self.QueueTimer = GameTimer(); self.WindUp = self.Q.windup
 				_G.Control.CastSpell(HK_Q, pred.CastPos)
 			end
 		end
 	end
 	if targetW and Manager:IsReady(_W) and self.CassiopeiaMenu.Harass.UseW:Value() then
-		local pred = _G.PremiumPrediction:GetPrediction(myHero, targetW, self.W)
-		if pred.PredPos and pred.HitChance >= 0.7 and pred.HitCount >= self.CassiopeiaMenu.Harass.MinW:Value() then
-			self.QueueTimer = GameTimer(); self.WindUp = self.W.windup
-			_G.Control.CastSpell(HK_W, pred.PredPos)
+		local pred = _G.PremiumPrediction:GetAOEPrediction(myHero, targetW, self.W)
+		if pred.CastPos and pred.HitChance >= self.CassiopeiaMenu.HitChance.HCW:Value() / 1000 and
+			pred.HitCount >= self.CassiopeiaMenu.Harass.MinW:Value() then
+				self.QueueTimer = GameTimer(); self.WindUp = self.W.windup
+				_G.Control.CastSpell(HK_W, pred.CastPos)
 		end
 	end
 	if targetE and Manager:IsReady(_E) and self.CassiopeiaMenu.Harass.UseE:Value() then
@@ -647,6 +716,253 @@ function Cassiopeia:Harass(targetQ, targetW, targetE)
 end
 
 --[[
+	┬  ┬┬┬┌─┌┬┐┌─┐┬─┐
+	└┐┌┘│├┴┐ │ │ │├┬┘
+	 └┘ ┴┴ ┴ ┴ └─┘┴└─
+ --]]
+
+class "Viktor"
+
+function Viktor:__init()
+	self.StartPos, self.EndPos = nil, nil
+	self.AttackRange, self.QueueTimer = myHero.range + myHero.boundingRadius + 35, 0
+	self.Ignite = myHero:GetSpellData(SUMMONER_1).name == "SummonerDot" and {SUMMONER_1, HK_SUMMONER_1} or
+		myHero:GetSpellData(SUMMONER_2).name == "SummonerDot" and {SUMMONER_2, HK_SUMMONER_2} or nil
+	self.Q = {speed = 2000, range = 600}
+	self.W = {speed = MathHuge, range = 800, delay = 1.75, radius = 270, windup = 0.25, collision = nil, type = "circular"}
+	self.E = {speed = 1050, minRange = 525, range = 700, maxRange = 1225, delay = 0, radius = 80, collision = nil, type = "linear"}
+	self.R = {speed = MathHuge, range = 700, delay = 0.25, radius = 325, windup = 0.25, collision = nil, type = "circular"}
+	self.HasTurboCharge = function(name) return name == "ViktorPowerTransferReturn" end
+	self.ViktorMenu = MenuElement({type = MENU, id = "Viktor", name = "Premium Viktor v" .. Versions[myHero.charName]})
+	self.ViktorMenu:MenuElement({id = "Combo", name = "Combo", type = MENU})
+	self.ViktorMenu.Combo:MenuElement({id = "UseQ", name = "Q [Siphon Power]", value = true, leftIcon = Icons.."ViktorQ"..Png})
+	self.ViktorMenu.Combo:MenuElement({id = "UseW", name = "W [Gravity Field]", value = true, leftIcon = Icons.."ViktorW"..Png})
+	self.ViktorMenu.Combo:MenuElement({id = "UseE", name = "E [Death Ray]", value = true, leftIcon = Icons.."ViktorE"..Png})
+	self.ViktorMenu.Combo:MenuElement({id = "UseR", name = "R [Chaos Storm]", value = true, leftIcon = Icons.."ViktorR"..Png})
+	self.ViktorMenu.Combo:MenuElement({id = "MinW", name = "W: Minimum Enemies", value = 2, min = 1, max = 5, step = 1})
+	self.ViktorMenu.Combo:MenuElement({id = "MinR", name = "R: Minimum Enemies", value = 2, min = 1, max = 5, step = 1})
+	self.ViktorMenu.Combo:MenuElement({id = "MaxHPR", name = "R: Maximum Health [%]", value = 35, min = 1, max = 100, step = 1})
+	self.ViktorMenu:MenuElement({id = "Harass", name = "Harass", type = MENU})
+	self.ViktorMenu.Harass:MenuElement({id = "UseQ", name = "Q [Siphon Power]", value = true, leftIcon = Icons.."ViktorQ"..Png})
+	self.ViktorMenu.Harass:MenuElement({id = "UseW", name = "W [Gravity Field]", value = false, leftIcon = Icons.."ViktorW"..Png})
+	self.ViktorMenu.Harass:MenuElement({id = "UseE", name = "E [Death Ray]", value = true, leftIcon = Icons.."ViktorE"..Png})
+	self.ViktorMenu.Harass:MenuElement({id = "MinW", name = "W: Minimum Enemies", value = 2, min = 1, max = 5, step = 1})
+	self.ViktorMenu:MenuElement({id = "LaneClear", name = "LaneClear", type = MENU})
+	self.ViktorMenu.LaneClear:MenuElement({id = "UseE", name = "E [Death Ray]", value = true, leftIcon = Icons.."ViktorE"..Png})
+	self.ViktorMenu.LaneClear:MenuElement({id = "ManaE", name = "E: Mana Manager", value = 55, min = 0, max = 100, step = 5})
+	self.ViktorMenu:MenuElement({id = "Drawings", name = "Drawings", type = MENU})
+	self.ViktorMenu.Drawings:MenuElement({id = "DrawQ", name = "Q: Draw Range", value = true})
+	self.ViktorMenu.Drawings:MenuElement({id = "DrawW", name = "W: Draw Range", value = true})
+	self.ViktorMenu.Drawings:MenuElement({id = "DrawE", name = "E: Draw Range", value = true})
+	self.ViktorMenu.Drawings:MenuElement({id = "DrawR", name = "R: Draw Range", value = true})
+	self.ViktorMenu.Drawings:MenuElement({id = "Track", name = "Track Enemies", value = true})
+	self.ViktorMenu:MenuElement({id = "HitChance", name = "HitChance", type = MENU})
+	self.ViktorMenu.HitChance:MenuElement({id = "HCW", name = "W: HitChance", value = 70, min = 0, max = 100, step = 5})
+	self.ViktorMenu.HitChance:MenuElement({id = "HCR", name = "R: HitChance", value = 80, min = 0, max = 100, step = 5})
+	if self.Ignite then
+		self.ViktorMenu:MenuElement({id = "Misc", name = "Misc", type = MENU})
+		self.ViktorMenu.Misc:MenuElement({id = "UseIgnite", name = "Use Ignite", value = true, leftIcon = Icons.."Ignite"..Png})
+	end
+	Callback.Add("Tick", function() self:OnTick() end)
+	Callback.Add("Draw", function() self:OnDraw() end)
+	_G.SDK.Orbwalker:OnPreAttack(function(...) self:OnPreAttack(...) end)
+end
+
+-- Methods
+
+function Viktor:CustomCastSpell(startPos, endPos)
+	self.StartPos, self.EndPos = startPos, endPos
+end
+
+function Viktor:GetBestLaserCastPos()
+	if GameTimer() - self.QueueTimer < 0.25 or self.EndPos then return end
+	local candidates = Manager:GetEnemiesAround(self.MyPos, self.E.maxRange)
+	if #candidates == 0 then return end
+	TableSort(candidates, function(a, b) return
+		Geometry:DistanceSquared(self.MyPos, Geometry:To2D(a.pos)) <
+		Geometry:DistanceSquared(self.MyPos, Geometry:To2D(b.pos))
+	end)
+	local unitPos, dir = Geometry:To2D(candidates[1].pos), Geometry:To2D(candidates[1].dir)
+	if Geometry:DistanceSquared(self.MyPos, unitPos) > self.E.minRange * self.E.minRange then
+		local startPos = Geometry:To3D(self.MyPos:Extended(unitPos, self.E.minRange))
+		local predPos = _G.PremiumPrediction:GetPrediction(startPos, candidates[1], self.E).CastPos
+		if predPos == nil then return end
+		if Geometry:DistanceSquared(self.MyPos, Geometry:To2D(predPos))
+			> self.E.maxRange * self.E.maxRange then return end
+		if predPos:To2D().onScreen then
+			self:CustomCastSpell(startPos, predPos)
+		else
+			self.QueueTimer = GameTimer()
+			local castPos = self.MyPos:Extended(Geometry:To2D(predPos), self.E.minRange)
+			_G.Control.CastSpell(HK_E, Geometry:To3D(castPos))
+		end
+	else
+		local predPos = #candidates > 1 and
+			_G.PremiumPrediction:GetPrediction(
+			Geometry:To3D(unitPos), candidates[2], self.E).CastPos or
+			(_G.PremiumPrediction:IsMoving(candidates[1]) and
+			_G.PremiumPrediction:GetPositionAfterTime(candidates[1], 1) or
+			Geometry:To3D(PPoint(unitPos + dir)))
+		if predPos == nil then return end
+		local endPos = Geometry:To3D(unitPos:Extended(
+			Geometry:To2D(predPos), self.E.range))
+		self:CustomCastSpell(candidates[1].pos, endPos)
+	end
+end
+
+function Viktor:GetTarget(range)
+	local units = {}
+	for i, enemy in ipairs(Enemies) do
+		if Manager:IsValid(enemy, range, self.MyPos) then
+			TableInsert(units, enemy)
+		end
+	end
+	TableSort(units, function(a, b) return
+		Manager:CalcMagicalDamage(myHero, a, 100) / (1 + a.health) * Manager:GetPriority(a) >
+		Manager:CalcMagicalDamage(myHero, b, 100) / (1 + b.health) * Manager:GetPriority(b)
+	end)
+	return #units > 0 and units[1] or nil
+end
+
+-- Events
+
+function Viktor:OnPreAttack(args)
+	if Manager:GetOrbwalkerMode() == "Combo" then
+		local target = self:GetTarget(self.AttackRange)
+		if target then args.Target = target; return end
+	end
+end
+
+function Viktor:OnTick()
+	self.MyPos = Geometry:To2D(myHero.pos)
+	if _G.JustEvade and _G.JustEvade:Evading() or (_G.ExtLibEvade and _G.ExtLibEvade.Evading) or
+		_G.SDK.Orbwalker:IsAutoAttacking() or Game.IsChatOpen() or myHero.dead then return end
+	if ControlIsKeyDown(HK_E) then
+		if self.EndPos then
+			ControlSetCursorPos(self.EndPos)
+			ControlKeyUp(HK_E)
+			self.EndPos = nil; return
+		elseif not Manager:IsReady(_E) then
+			ControlKeyUp(HK_E)
+		end
+	elseif self.StartPos then
+		ControlSetCursorPos(self.StartPos)
+		ControlKeyDown(HK_E)
+		self.StartPos = nil; return
+	end
+	if self.Ignite then self:Auto() end
+	local mode = Manager:GetOrbwalkerMode()
+	if mode == "Clear" then self:Clear(); return end
+	if Manager:IsReady(_E) and ((mode == "Combo" and self.ViktorMenu.Combo.UseE:Value()) or
+		(mode == "Harass" and self.ViktorMenu.Harass.UseE:Value())) then
+			self:GetBestLaserCastPos()
+	end
+	local tQ, tW = self:GetTarget(self.Q.range), self:GetTarget(self.W.range)
+	if mode == "Combo" then self:Combo(tQ, tW, self:GetTarget(self.R.range))
+	elseif mode == "Harass" then self:Harass(tQ, tW) end
+end
+
+function Viktor:OnDraw()
+	if Game.IsChatOpen() or myHero.dead then return end
+	if self.ViktorMenu.Drawings.DrawQ:Value() then
+		DrawCircle(myHero.pos, self.Q.range, 1, Draw.Color(96, 0, 206, 209))
+	end
+	if self.ViktorMenu.Drawings.DrawW:Value() then
+		DrawCircle(myHero.pos, self.W.range, 1, Draw.Color(96, 138, 43, 226))
+	end
+	if self.ViktorMenu.Drawings.DrawE:Value() then
+		DrawCircle(myHero.pos, self.E.minRange, 1, Draw.Color(96, 255, 140, 0))
+		DrawCircle(myHero.pos, self.E.maxRange, 1, Draw.Color(96, 255, 140, 0))
+	end
+	if self.ViktorMenu.Drawings.DrawR:Value() then
+		DrawCircle(myHero.pos, self.R.range, 1, Draw.Color(96, 218, 112, 214))
+	end
+	if not self.MyPos then return end
+	if self.ViktorMenu.Drawings.Track:Value() then
+		for i, enemy in ipairs(Enemies) do
+			if enemy and enemy.valid and enemy.visible then
+				local dist = Geometry:DistanceSquared(self.MyPos, Geometry:To2D(enemy.pos))
+				DrawLine(myHero.pos:To2D(), enemy.pos:To2D(), 2,
+					dist < 4000000 and Draw.Color(128, 220, 20, 60)
+					or dist < 16000000 and Draw.Color(128, 240, 230, 140)
+					or Draw.Color(128, 152, 251, 152))
+			end
+		end
+	end
+end
+
+function Viktor:Clear()
+	if GameTimer() - self.QueueTimer < 0.25 or self.EndPos then return end
+	if Manager:IsReady(_E) and self.ViktorMenu.LaneClear.UseE:Value() and
+		Manager:GetPercentMana() > self.ViktorMenu.LaneClear.ManaE:Value() then
+		local minions, points = Manager:GetMinionsAround(self.MyPos, self.E.maxRange), {}
+		if #minions < 5 then return end
+		for i, minion in ipairs(minions) do
+			local predPos = _G.PremiumPrediction:GetFastPrediction(myHero, minion, self.E)
+			if predPos then TableInsert(points, Geometry:To2D(predPos)) end
+		end
+		local startPos, endPos, count = Geometry:GetDynamicLinearAOEPos(
+			points, self.E.minRange, self.E.maxRange, self.E.radius)
+		if startPos and endPos and count >= 5 then
+			self:CustomCastSpell(Geometry:To3D(startPos), Geometry:To3D(endPos))
+		end
+	end
+end
+
+function Viktor:Auto()
+	if not self.ViktorMenu.Misc.UseIgnite:Value() or not
+		Manager:IsReady(self.Ignite[1]) or Manager:IsReady(_E) then return end
+	local units = Manager:GetEnemiesAround(self.MyPos, 600)
+	for i, enemy in ipairs(units) do
+		local dmg = 50 + 20 * (myHero.levelData.lvl or 1)
+		if dmg >= (enemy.health + enemy.hpRegen * 3) then
+			_G.Control.CastSpell(self.Ignite[2], enemy.pos); break
+		end
+	end
+end
+
+function Viktor:Combo(targetQ, targetW, targetR)
+	if GameTimer() - self.QueueTimer < 0.25 or self.EndPos then return end
+	if targetQ and Manager:IsReady(_Q) and self.ViktorMenu.Combo.UseQ:Value() then
+		self.QueueTimer = GameTimer()
+		_G.Control.CastSpell(HK_Q, targetQ.pos)
+	end
+	if targetW and Manager:IsReady(_W) and self.ViktorMenu.Combo.UseW:Value() then
+		local pred = _G.PremiumPrediction:GetAOEPrediction(myHero, targetW, self.W)
+		if pred.CastPos and pred.HitChance >= self.ViktorMenu.HitChance.HCW:Value() / 1000 and
+			pred.HitCount >= self.ViktorMenu.Combo.MinW:Value() then
+				self.QueueTimer = GameTimer()
+				_G.Control.CastSpell(HK_W, pred.CastPos)
+		end
+	end
+	if targetR and Manager:IsReady(_R) and self.ViktorMenu.Combo.UseR:Value() and
+		Manager:GetPercentHealth(targetR) >= self.ViktorMenu.Combo.MaxHPR:Value() then
+		local pred = _G.PremiumPrediction:GetAOEPrediction(myHero, targetR, self.R)
+		if pred.CastPos and pred.HitChance >= self.ViktorMenu.HitChance.HCR:Value() / 1000 and
+			pred.HitCount >= self.ViktorMenu.Combo.MinR:Value() then
+				self.QueueTimer = GameTimer()
+				_G.Control.CastSpell(HK_R, pred.CastPos)
+		end
+	end
+end
+
+function Viktor:Harass(targetQ, targetW)
+	if GameTimer() - self.QueueTimer < 0.25 or self.EndPos then return end
+	if targetQ and Manager:IsReady(_Q) and self.ViktorMenu.Harass.UseQ:Value() then
+		self.QueueTimer = GameTimer()
+		_G.Control.CastSpell(HK_Q, targetQ.pos)
+	end
+	if targetW and Manager:IsReady(_W) and self.ViktorMenu.Harass.UseW:Value() then
+		local pred = _G.PremiumPrediction:GetAOEPrediction(myHero, targetW, self.W)
+		if pred.CastPos and pred.HitChance >= self.ViktorMenu.HitChance.HCW:Value() / 1000 and
+			pred.HitCount >= self.ViktorMenu.Harass.MinW:Value() then
+				self.QueueTimer = GameTimer()
+				_G.Control.CastSpell(HK_W, pred.CastPos)
+		end
+	end
+end
+
+--[[
 	─┐ ┬┌─┐┬─┐┌─┐┌┬┐┬ ┬
 	┌┴┬┘├┤ ├┬┘├─┤ │ ├─┤
 	┴ └─└─┘┴└─┴ ┴ ┴ ┴ ┴
@@ -655,8 +971,9 @@ end
 class "Xerath"
 
 function Xerath:__init()
-	self.ActiveQ, self.ActiveR, self.InitChargeTimer, self.QueueTimer, self.SearchTimer, self.Killable = false, false, 0, 0, 0, {}
-	self.Q = {speed = MathHuge, minRange = 750, range = 1500, delay = 0.5, radius = 90, collision = nil, type = "linear"}
+	self.ActiveQ, self.ActiveR, self.LastPos, self.LastDirection = false, false, nil, nil
+	self.InitChargeTimer, self.QueueTimer, self.SearchTimer, self.Killable = 0, 0, 0, {}
+	self.Q = {speed = MathHuge, minRange = 750, range = 1400, delay = 0.5, radius = 90, collision = nil, type = "linear"}
 	self.W = {speed = MathHuge, range = 1000, delay = 0.75, radius = 235, collision = nil, type = "circular"}
 	self.E = {speed = 1400, range = 1050, delay = 0.2, radius = 60, collision = {"minion"}, type = "linear"}
 	self.R = {speed = MathHuge, range = 5000, delay = 0.7, radius = 200, collision = nil, type = "circular"}
@@ -680,11 +997,18 @@ function Xerath:__init()
 	self.XerathMenu.Drawings:MenuElement({id = "DrawE", name = "E: Draw Range", value = true})
 	self.XerathMenu.Drawings:MenuElement({id = "DrawR", name = "R: Draw Range", value = true})
 	self.XerathMenu.Drawings:MenuElement({id = "Track", name = "Track Enemies", value = true})
+	self.XerathMenu:MenuElement({id = "HitChance", name = "HitChance", type = MENU})
+	self.XerathMenu.HitChance:MenuElement({id = "HCQ", name = "Q: HitChance", value = 30, min = 0, max = 100, step = 5})
+	self.XerathMenu.HitChance:MenuElement({id = "HCW", name = "W: HitChance", value = 20, min = 0, max = 100, step = 5})
+	self.XerathMenu.HitChance:MenuElement({id = "HCE", name = "E: HitChance", value = 70, min = 0, max = 100, step = 5})
+	self.XerathMenu.HitChance:MenuElement({id = "HCR", name = "R: HitChance", value = 40, min = 0, max = 100, step = 5})
 	Callback.Add("Tick", function() self:OnTick() end)
 	Callback.Add("Draw", function() self:OnDraw() end)
 	_G.SDK.Orbwalker:OnPreAttack(function(...) self:OnPreAttack(...) end)
 	_G.SDK.Orbwalker:OnPreMovement(function(...) self:OnPreMovement(...) end)
 end
+
+-- Methods
 
 function Xerath:GetTarget(range)
 	local units = {}
@@ -749,6 +1073,8 @@ function Xerath:SearchKillable()
 	self.SearchTimer = GameTimer()
 end
 
+-- Events
+
 function Xerath:OnPreAttack(args)
 	if self.ActiveQ or self.ActiveR then
 		args.Process = false; return
@@ -761,9 +1087,8 @@ end
 
 function Xerath:OnTick()
 	self.MyPos = Geometry:To2D(myHero.pos)
-	if ControlIsKeyDown(HK_Q) and
-		myHero:GetSpellData(spell).currentCd > 1 then
-			ControlKeyUp(HK_Q)
+	if self.LastPos and myHero:GetSpellData(_Q).currentCd > 0 then
+		self.LastPos, self.LastDirection = nil, nil
 	end
 	if _G.JustEvade and _G.JustEvade:Evading() or (_G.ExtLibEvade and _G.ExtLibEvade.Evading) or
 		_G.SDK.Orbwalker:IsAutoAttacking() or Game.IsChatOpen() or myHero.dead then return end
@@ -778,6 +1103,9 @@ function Xerath:OnTick()
 		self:SearchKillable()
 	end
 	local mode = Manager:GetOrbwalkerMode()
+	if not self.ActiveQ and ControlIsKeyDown(HK_Q) and (not Manager:IsReady(_Q) or mode == nil) then
+		DelayAction(function() ControlKeyUp(HK_Q) end, 0.01); return
+	end
 	if mode == "Clear" then self:Clear(); return end
 	local tQ, tWE = self:GetTarget(self.Q.range), self:GetTarget(self.W.range)
 	if mode == "Combo" or mode == "Harass" then self:Action(mode, tQ, tWE) end
@@ -815,67 +1143,78 @@ function Xerath:AutoR()
 	local targetR = self:GetTarget(self.R.range)
 	if targetR == nil or GameTimer() - self.QueueTimer < 0.75 then return end
 	local pred = _G.PremiumPrediction:GetPrediction(myHero, targetR, self.R)
-	if pred.CastPos and pred.HitChance > 0.4 then
+	if pred.CastPos and pred.HitChance >= self.XerathMenu.HitChance.HCR:Value() / 1000 then
 		local pos = Vector(pred.CastPos):ToMM()
 		Control.SetCursorPos(pos.x, pos.y)
-		Control.KeyDown(HK_R); Control.KeyUp(HK_R)
+		ControlKeyDown(HK_R); ControlKeyUp(HK_R)
 		self.QueueTimer = GameTimer() + MathRandom(-250, 250) / 1000
 	end
 end
 
 function Xerath:Clear()
 	if GameTimer() - self.QueueTimer < 0.25 then return end
-	if Manager:IsReady(_Q) and self.XerathMenu.LaneClear.UseQ:Value() then
+	if Manager:IsReady(_Q) and self.XerathMenu.LaneClear.UseQ:Value() and
+		Manager:GetPercentMana() > self.XerathMenu.LaneClear.ManaQ:Value() then
 		local minions, points = Manager:GetMinionsAround(self.MyPos, self.Q.range), {}
 		if #minions < 6 then return end
 		for i, minion in ipairs(minions) do
 			local predPos = _G.PremiumPrediction:GetFastPrediction(myHero, minion, self.Q)
 			if predPos then TableInsert(points, Geometry:To2D(predPos)) end
 		end
-		local pos, count = Geometry:GetLinearAOEPos(points, self.Q.range, self.Q.radius)
+		local pos, count = Geometry:GetStaticLinearAOEPos(points, self.Q.range, self.Q.radius)
 		if not self.ActiveQ then
 			if count >= 6 then ControlKeyDown(HK_Q); self.QueueTimer = GameTimer() end; return
 		end
-		if pos and (GameTimer() - self.InitChargeTimer) * 500 + self.Q.minRange >= self.Q.range - 100 then
-			_G.Control.CastSpell(HK_Q, Geometry:To3D(pos))
-			self.QueueTimer = GameTimer()
+		if not pos then return end
+		TableSort(points, function(a, b) return
+			Geometry:DistanceSquared(self.MyPos, a) >
+			Geometry:DistanceSquared(self.MyPos, b)
+		end)
+		if (GameTimer() - self.InitChargeTimer) * 500 + self.Q.minRange >=
+			Geometry:Distance(self.MyPos, points[1]) + 35 then
+				self.QueueTimer = GameTimer()
+				_G.Control.CastSpell(HK_Q, Geometry:To3D(pos))
+				DelayAction(function() ControlKeyUp(HK_Q) end, 0.01)
 		end
 	end
 end
 
 function Xerath:Action(mode, targetQ, targetWE)
-	if targetQ == nil or GameTimer() - self.QueueTimer < 0.25 then return end
+	if GameTimer() - self.QueueTimer < 0.2 then return end
 	if targetWE and Manager:IsReady(_W) and (mode == "Combo" and self.XerathMenu.Combo.UseW:Value() or self.XerathMenu.Harass.UseW:Value()) then
 		local pred = _G.PremiumPrediction:GetAOEPrediction(myHero, targetWE, self.W)
-		if pred.CastPos and pred.HitChance > 0.2 then
+		if pred.CastPos and pred.HitChance >= self.XerathMenu.HitChance.HCW:Value() / 1000 then
 			self.QueueTimer = GameTimer()
 			_G.Control.CastSpell(HK_W, pred.CastPos)
 		end
 	end
-	if targetQ and Manager:IsReady(_Q) and (mode == "Combo" and self.XerathMenu.Combo.UseQ:Value() or self.XerathMenu.Harass.UseQ:Value()) then
-		if not self.ActiveQ then ControlKeyDown(HK_Q); self.QueueTimer = GameTimer(); return end
-		local range = (GameTimer() - self.InitChargeTimer) * 500 + self.Q.minRange
-		local dist = Geometry:Distance(self.MyPos, Geometry:To2D(targetQ.pos))
-		if range >= self.Q.range then
-			local pred = _G.PremiumPrediction:GetAOEPrediction(myHero, targetQ, self.Q)
-			if pred.CastPos and pred.HitChance > 0 then
-				_G.Control.CastSpell(HK_Q, pred.CastPos)
-				self.QueueTimer = GameTimer()
-			end
-		elseif range >= dist then
-			local moveSpeed = targetQ.ms or 315
-			DelayAction(function()
-				local pred = _G.PremiumPrediction:GetAOEPrediction(myHero, targetQ, self.Q)
-				if pred.CastPos and pred.HitChance > 0.3 then
-					_G.Control.CastSpell(HK_Q, pred.CastPos)
+	if Manager:IsReady(_Q) and (mode == "Combo" and self.XerathMenu.Combo.UseQ:Value() or self.XerathMenu.Harass.UseQ:Value()) then
+		if targetQ == nil then
+			if self.ActiveQ and self.LastPos and self.LastDirection and
+				(GameTimer() - self.InitChargeTimer) * 500 + self.Q.minRange >= self.Q.range then
+					local castPos = self.MyPos:Extended(PPoint(self.LastPos + self.LastDirection), self.Q.minRange)
 					self.QueueTimer = GameTimer()
-				end
-			end, moveSpeed >= 500 and 1 or moveSpeed * self.Q.delay / 500)
+					_G.Control.CastSpell(HK_Q, Geometry:To3D(castPos))
+					DelayAction(function() ControlKeyUp(HK_Q) end, 0.01)
+			end
+			return
+		end
+		self.LastPos, self.LastDirection = Geometry:To2D(targetQ.pos), Geometry:To2D(targetQ.dir)
+		if not self.ActiveQ then ControlKeyDown(HK_Q); self.QueueTimer = GameTimer(); return end
+		local moveSpeed, boundingRadius = targetQ.ms or 500, targetQ.boundingRadius or 65
+		local range = MathMin(self.Q.range, (GameTimer() - self.InitChargeTimer) * 500 + self.Q.minRange)
+		local threshold = moveSpeed >= 500 and moveSpeed * self.Q.delay + boundingRadius or self.Q.range - range
+		if range >= Geometry:Distance(self.MyPos, self.LastPos) + threshold then
+			local pred = _G.PremiumPrediction:GetAOEPrediction(myHero, targetQ, self.Q)
+			if pred.CastPos and pred.HitChance >= self.XerathMenu.HitChance.HCQ:Value() / 1000 then
+				self.QueueTimer = GameTimer()
+				_G.Control.CastSpell(HK_Q, pred.CastPos)
+			end
 		end
 	end
 	if targetWE and Manager:IsReady(_E) and (mode == "Combo" and self.XerathMenu.Combo.UseE:Value() or self.XerathMenu.Harass.UseE:Value()) then
 		local pred = _G.PremiumPrediction:GetPrediction(myHero, targetWE, self.E)
-		if pred.CastPos and pred.HitChance >= 0.7 then
+		if pred.CastPos and pred.HitChance >= self.XerathMenu.HitChance.HCE:Value() / 1000 then
 			self.QueueTimer = GameTimer()
 			_G.Control.CastSpell(HK_E, pred.CastPos)
 		end
