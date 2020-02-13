@@ -1180,7 +1180,7 @@ function Xerath:Clear()
 end
 
 function Xerath:Action(mode, targetQ, targetWE)
-	if GameTimer() - self.QueueTimer < 0.2 then return end
+	if GameTimer() - self.QueueTimer < 0.25 then return end
 	if targetWE and Manager:IsReady(_W) and (mode == "Combo" and self.XerathMenu.Combo.UseW:Value() or self.XerathMenu.Harass.UseW:Value()) then
 		local pred = _G.PremiumPrediction:GetAOEPrediction(myHero, targetWE, self.W)
 		if pred.CastPos and pred.HitChance >= self.XerathMenu.HitChance.HCW:Value() / 1000 then
@@ -1200,7 +1200,7 @@ function Xerath:Action(mode, targetQ, targetWE)
 			return
 		end
 		self.LastPos, self.LastDirection = Geometry:To2D(targetQ.pos), Geometry:To2D(targetQ.dir)
-		if not self.ActiveQ then ControlKeyDown(HK_Q); self.QueueTimer = GameTimer(); return end
+		if not self.ActiveQ then ControlKeyDown(HK_Q); return end
 		local moveSpeed, boundingRadius = targetQ.ms or 500, targetQ.boundingRadius or 65
 		local range = MathMin(self.Q.range, (GameTimer() - self.InitChargeTimer) * 500 + self.Q.minRange)
 		local threshold = moveSpeed >= 500 and moveSpeed * self.Q.delay + boundingRadius or self.Q.range - range
