@@ -12,7 +12,7 @@ local function ReadFile(file)
 	txt:close(); return result
 end
 
-local Version, IntVer = 1.07, "1.0.7"
+local Version, IntVer = 1.08, "1.0.8"
 local function AutoUpdate()
 	DownloadFile("https://raw.githubusercontent.com/Ark223/GoS-Scripts/master/PremiumPrediction.version", COMMON_PATH .. "PremiumPrediction.version")
 	if tonumber(ReadFile(COMMON_PATH .. "PremiumPrediction.version")) > Version then
@@ -938,8 +938,8 @@ function PremiumPred:GetHitChance(source, unit, castPos, spellData, timeToHit, c
 	--			(data.avgLength / self:Distance(sourcePos, castPos) / 2 + 0.5) or 1
 	hitChance = self:IsDashing(unit) and 1 or MathMax(0, MathMin(1, hitChance * mod))
 	if not unit.visible then hitChance = hitChance / 2 end
-	local flags = spellData.collision
-	if self:DistanceSquared(sourcePos, castPos) > spellData.range * spellData.range then hitChance = 0
+	local boundingRadius, flags = unit.boundingRadius or 65, spellData.collision
+	if self:DistanceSquared(sourcePos, castPos) > (spellData.range * spellData.range - boundingRadius * boundingRadius) then hitChance = 0
 	elseif flags and #flags > 0 and self:IsColliding(source, self:To3D(castPos), spellData, flags, unit) then hitChance = -1 end
 	return hitChance
 end
@@ -972,7 +972,18 @@ _G.PremiumPrediction = {
 	OnProcessSpell = function(func) PremiumPred:ProcessSpell(func) end,
 	OnProcessWaypoint = function(func) PremiumPred:ProcessWaypoint(func) end,
 	To2D = function(self, position) return PremiumPred:To2D(position) end,
-	To3D = function(self, point, height) return PremiumPred:To3D(point, height) end
+	To3D = function(self, point, height) return PremiumPred:To3D(point, height) end,
+	HitChance = {
+		Impossible = function(hc) return hc == -2 end,
+		Collision = function(hc) return hc == -1 end,
+		OutOfRange = function(hc) return hc == 0 end,
+		Low = function(hc) return hc > 0 end,
+		Medium = function(hc) return hc >= 0.25 end,
+		High = function(hc) return hc >= 0.5 end,
+		VeryHigh = function(hc) return hc >= 0.75 end,
+		Dashing = function(hc) return hc == 1 end,
+		Immobile = function(hc) return hc == 1 end
+	}
 }
 
 AutoUpdate()
