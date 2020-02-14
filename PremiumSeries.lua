@@ -1202,9 +1202,9 @@ function Xerath:Action(mode, targetQ, targetWE)
 		self.LastPos, self.LastDirection = Geometry:To2D(targetQ.pos), Geometry:To2D(targetQ.dir)
 		if not self.ActiveQ then ControlKeyDown(HK_Q); return end
 		local moveSpeed, boundingRadius = targetQ.ms or 500, targetQ.boundingRadius or 65
-		local range = MathMin(self.Q.range, (GameTimer() - self.InitChargeTimer) * 500 + self.Q.minRange)
+		local range = (GameTimer() - self.InitChargeTimer) * 500 + self.Q.minRange
 		local threshold = moveSpeed >= 500 and moveSpeed * self.Q.delay + boundingRadius or self.Q.range - range
-		if range >= Geometry:Distance(self.MyPos, self.LastPos) + threshold then
+		if range >= MathMin(self.Q.range, Geometry:Distance(self.MyPos, self.LastPos) + threshold) then
 			local pred = _G.PremiumPrediction:GetAOEPrediction(myHero, targetQ, self.Q)
 			if pred.CastPos and pred.HitChance >= self.XerathMenu.HitChance.HCQ:Value() / 1000 then
 				self.QueueTimer = GameTimer()
