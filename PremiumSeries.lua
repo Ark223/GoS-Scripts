@@ -12,7 +12,7 @@
 	Changelog:
 
 	v1.0.5
-	+ Added Vayne & interrupter
+	+ Added Vayne, interrupter and custom wall map
 
 	v1.0.4
 	+ Added Viktor
