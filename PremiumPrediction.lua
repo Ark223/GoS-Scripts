@@ -1,4 +1,7 @@
 
+-- Premium Prediction
+-- Author: Ark223
+
 local function DownloadFile(site, file)
 	DownloadFileAsync(site, file, function() end)
 	local timer = os.clock()
@@ -12,7 +15,7 @@ local function ReadFile(file)
 	txt:close(); return result
 end
 
-local Version, IntVer = 1.08, "1.0.8"
+local Version, IntVer = 1.09, "1.0.9"
 local function AutoUpdate()
 	DownloadFile("https://raw.githubusercontent.com/Ark223/GoS-Scripts/master/PremiumPrediction.version", COMMON_PATH .. "PremiumPrediction.version")
 	if tonumber(ReadFile(COMMON_PATH .. "PremiumPrediction.version")) > Version then
@@ -206,8 +209,8 @@ end
 function MEC:MakeConvexHull(points)
 	local points, bestPt, toRemove = self:HullCull(points), {points[1]}, 1
 	for i, point in ipairs(points) do
-		if (point.y < bestPt[1].y) or (point.y == bestPt[1].y and point.x < bestPt[1].x) then
-			bestPt[1], toRemove = point, i
+		if (point.y < bestPt[1].y) or (point.y == bestPt[1].y
+			and point.x < bestPt[1].x) then bestPt[1], toRemove = point, i
 		end
 	end
 	local hull, sweepAngle = {bestPt[1]}, 0
@@ -377,14 +380,14 @@ end
 
 function PremiumPred:CutWaypoints(waypoints, distance)
 	if distance < 0 then
-		waypoints[1] = waypoints[1] + distance * Point2(waypoints[2] - waypoints[1]):Normalized()
+		waypoints[1] = Point2(waypoints[1]):Extended(waypoints[2], distance)
 		return waypoints
 	end
 	local distance, result = distance, {}
 	for i = 1, #waypoints - 1 do
 		local dist = self:Distance(waypoints[i], waypoints[i + 1])
 		if dist > distance then
-			TableInsert(result, waypoints[i] + distance * Point2(waypoints[i + 1] - waypoints[i]):Normalized())
+			TableInsert(result, Point2(waypoints[i]):Extended(waypoints[i + 1], distance))
 			for j = i + 1, #waypoints do TableInsert(result, waypoints[j]) end; break
 		end
 		distance = distance - dist
@@ -444,9 +447,10 @@ function PremiumPred:GetPossibleUnits(source, unit, spellData)
 	for i = 1, #self.Enemies do
 		local enemy = self.Enemies[i]
 		if enemy.valid and not enemy.dead and enemy.networkID ~= unit.networkID then
-			if self:Distance(sourcePos, self:To2D(enemy.pos)) <= (enemy.boundingRadius or 65) + spellData.range + spellData.radius then
-				local pred = self:GetPrediction(source, enemy, spellData)
-				if pred.HitChance > 0 then TableInsert(result, self:To2D(pred.PredPos)) end
+			if self:Distance(sourcePos, self:To2D(enemy.pos)) <=
+				(enemy.boundingRadius or 65) + spellData.range + spellData.radius then
+					local pred = self:GetPrediction(source, enemy, spellData)
+					if pred.HitChance > 0 then TableInsert(result, self:To2D(pred.PredPos)) end
 			end
 		end
 	end
@@ -498,7 +502,7 @@ function PremiumPred:Interception(startPos, endPos, source, speed, missileSpeed,
 		if t2 >= delay then t = t1 >= delay and MathMin(t1, t2) or MathMax(t1, t2) end
 		return t
 	end
-	return -1
+	return 0
 end
 
 function PremiumPred:Intersection(a1, b1, a2, b2)
@@ -515,14 +519,15 @@ function PremiumPred:IsColliding(source, position, spellData, flags, exclude)
 		if flag == "minion" then
 			for i = 1, GameMinionCount() do
 				local minion = GameMinion(i)
-				if minion and minion.valid and minion.visible and minion.team ~= myHero.team and minion.health > 0 and minion.maxHealth > 5 then
+				if minion and minion.valid and minion.visible and
+					minion.team ~= myHero.team and minion.health > 0 and minion.maxHealth > 5 then
 					if exclude and minion.networkID ~= exclude.networkID or not exclude then
 						local predPos = self:GetFastPrediction(source, minion, spellData)
 						if predPos then
 							local predPos = self:To2D(predPos)
 							local point = self:ClosestPointOnSegment(sourcePos, position, predPos)
-							if self:DistanceSquared(predPos, point) <= ((minion.boundingRadius or 45) + spellData.radius + self.PPMenu.CB:Value()) ^ 2 then
-								return true
+							if self:DistanceSquared(predPos, point) <= ((minion.boundingRadius or 45) +
+								spellData.radius + self.PPMenu.CB:Value()) ^ 2 then return true
 							end
 						end
 					end
@@ -531,24 +536,26 @@ function PremiumPred:IsColliding(source, position, spellData, flags, exclude)
 		elseif flag == "hero" then
 			for i = 1, #self.Enemies do
 				local hero = self.Enemies[i]
-				if hero and not hero.dead then
+				if hero and hero.valid and hero.visible and hero.health > 0 then
 					if exclude and hero.networkID ~= exclude.networkID or not exclude then
 						local predPos = self:GetFastPrediction(source, hero, spellData)
 						if predPos then
 							local predPos = self:To2D(predPos)
 							local point = self:ClosestPointOnSegment(sourcePos, position, predPos)
-							if self:DistanceSquared(predPos, point) <= ((hero.boundingRadius or 65) + spellData.radius + self.PPMenu.CB:Value()) ^ 2 then
-								return true
+							if self:DistanceSquared(predPos, point) <= ((hero.boundingRadius or 65) +
+								spellData.radius + self.PPMenu.CB:Value()) ^ 2 then return true
 							end
 						end
 					end
 				end
 			end
-		elseif flag == "windwall" and self.WindWall ~= nil then -- WINDWALL DETECTION WON'T PROBABLY BE ADDED DUE TO LOW GOS PERFORMANCE
+		elseif flag == "windwall" and self.WindWall ~= nil then -- WINDWALL DETECTION WON'T BE ADDED DUE TO LOW GOS PERFORMANCE
 			local data = self.WindWall
 			if #data == 0 then break end
-			local s1, s2, s3, s4 = Point2(data.pos1 - data.dir), Point2(data.pos1 + data.dir), Point2(data.pos2 - data.dir), Point2(data.pos2 + data.dir)
-			local int1, int2 = self:Intersection(sourcePos, position, s1, s2), self:Intersection(sourcePos, position, s3, s4)
+			local s1, s2, s3, s4 = Point2(data.pos1 - data.dir), Point2(data.pos1 + data.dir),
+				Point2(data.pos2 - data.dir), Point2(data.pos2 + data.dir)
+			local int1, int2 = self:Intersection(sourcePos, position, s1, s2),
+				self:Intersection(sourcePos, position, s3, s4)
 			if int1 or int2 then return true end
 		end
 	end
@@ -601,9 +608,10 @@ function PremiumPred:CalcAverage(samples)
 end
 
 function PremiumPred:GetImmobileDuration(unit)
-	if unit.activeSpell and (unit.activeSpell.isChanneling or unit.activeSpell.isAutoAttack) then
-		local endTime = unit.activeSpell.castEndTime
-		if endTime >= GameTimer() then return endTime - GameTimer() end
+	if unit.activeSpell and unit.activeSpell.valid and
+		(unit.activeSpell.isChanneling or unit.activeSpell.isAutoAttack) then
+			local endTime = unit.activeSpell.castEndTime
+			if endTime >= GameTimer() then return endTime - GameTimer() end
 	end
 	for i = 0, unit.buffCount do
 		local buff = unit:GetBuff(i)
@@ -619,7 +627,8 @@ function PremiumPred:GetImmobileDuration(unit)
 end
 
 function PremiumPred:GetMovementSpeed(unit)
-	return unit.pathing.isDashing and unit.pathing.dashSpeed or unit.ms or 315
+	return unit.valid and unit.pathing.isDashing and
+		unit.pathing.dashSpeed or (unit.ms ~= nil and unit.ms or 315)
 end
 
 function PremiumPred:IsDashing(unit)
@@ -681,11 +690,13 @@ function PremiumPred:Tick()
 				data.dash = {startPos = Point2(0, 0), endPos = Point2(0, 0), speed = 0}
 			elseif dashData.startPos ~= data.dash.startPos then
 				for i = 1, #self.DashCBs do self.DashCBs[i](unit, dashData) end
-				data.dash = {startPos = dashData.startPos, endPos = dashData.endPos, speed = dashData.speed, timer = GameTimer()}
+				data.dash = {startPos = dashData.startPos, endPos = dashData.endPos,
+					speed = dashData.speed, timer = GameTimer()}
 			end
 			-- Process spell
 			local activeData = unit.activeSpell
-			if activeData and data.spell ~= activeData.name .. activeData.endTime and activeData.isChanneling then
+			if activeData and activeData.valid and data.spell ~=
+				activeData.name .. activeData.endTime and activeData.isChanneling then
 				data.spell = activeData.name .. activeData.endTime
 				for i = 1, #self.PsCBs do self.PsCBs[i](unit, activeData) end
 				if DashWindups[activeData.name] then
@@ -758,7 +769,8 @@ end
 
 function PremiumPred:OnProcessWaypoint(unit, id, pathData)
 	local data, endPos = CustomData[id], self:To2D(unit.posTo)
-	local angle = #data.waypoints > 0 and self:AngleBetween(self:To2D(unit.pos), data.waypoints[#data.waypoints], endPos) or 0
+	local angle = #data.waypoints > 0 and self:AngleBetween(self:To2D(unit.pos),
+		data.waypoints[#data.waypoints], endPos) or 0
 	TableInsert(data.angles, angle)
 	TableInsert(data.lengths, self:GetPathLength(self:GetWaypoints(unit)))
 	TableInsert(data.timers, GameTimer())
@@ -769,9 +781,12 @@ function PremiumPred:OnProcessWaypoint(unit, id, pathData)
 end
 
 function PremiumPred:GetPrediction(source, unit, spellData)
-	local result = self:IsDashing(unit) and self:GetDashPrediction(source, unit, spellData) or self:PredictUnitPosition(source, unit, spellData)
-	local hitChance = self:GetHitChance(source, unit, result.CastPos, spellData, result.TimeToHit, result.CanHit)
-	return {CastPos = result.CastPos, PredPos = result.PredPos, HitChance = hitChance, HitCount = hitChance > 0 and 1 or 0, TimeToHit = result.TimeToHit}
+	local result = self:IsDashing(unit) and self:GetDashPrediction(source, unit, spellData)
+		or self:PredictUnitPosition(source, unit, spellData)
+	local hitChance = self:GetHitChance(source, unit,
+		result.CastPos, spellData, result.TimeToHit, result.CanHit)
+	return {CastPos = result.CastPos, PredPos = result.PredPos, HitChance = hitChance,
+		HitCount = hitChance > 0 and 1 or 0, TimeToHit = result.TimeToHit}
 end
 
 function PremiumPred:GetAOEPrediction(source, unit, spellData)
@@ -795,9 +810,9 @@ function PremiumPred:GetAOEPrediction(source, unit, spellData)
 			for i, pos in ipairs(positions) do
 				local endPos, count = Point2(sourcePos):Extended(pos, spellData.range), 0
 				for j, candidate in ipairs(candidates) do
-					if spellType == "linear" and self:DistanceSquared(candidate, self:ClosestPointOnSegment(sourcePos, endPos, candidate)) <= spellData.radius *
-						spellData.radius or (spellType == "conic" and self:IsPointInArc(sourcePos, candidate, endPos, spellData.range, spellData.angle or 50)) then
-						count = count + 1
+					if spellType == "linear" and self:DistanceSquared(candidate, self:ClosestPointOnSegment(sourcePos, endPos, candidate))
+						<= spellData.radius * spellData.radius or (spellType == "conic" and self:IsPointInArc(sourcePos, candidate, endPos,
+						spellData.range, spellData.angle or 50)) then count = count + 1
 					end
 				end
 				if count > bestCount then bestPos, bestCount = pos, count end
@@ -809,7 +824,9 @@ function PremiumPred:GetAOEPrediction(source, unit, spellData)
 				if self:DistanceSquared(sourcePos, mec.Center) <= spellData.range * spellData.range
 				and mec.Radius <= spellData.radius then bestPos, bestCount, success = mec.Center, #candidates, true end
 				if not success then
-					TableSort(candidates, function(a, b) return self:DistanceSquared(mec.Center, a) > self:DistanceSquared(mec.Center, b) end)
+					TableSort(candidates, function(a, b) return
+						self:DistanceSquared(mec.Center, a) >
+						self:DistanceSquared(mec.Center, b) end)
 					TableRemove(candidates, 1)
 				end
 			end
@@ -851,18 +868,20 @@ function PremiumPred:GetDashPrediction(source, unit, spellData)
 	end
 	local waypoints, moveSpeed = self:GetWaypoints(unit), self:GetMovementSpeed(unit)
 	waypoints = self:CutWaypoints(waypoints, (spellData.delay + self.PPMenu.Latency:Value() / 2000 + 0.07) * moveSpeed)
-	if #waypoints == 1 then return output end
-	if spellData.speed == MathHuge then
-		output.CastPos, output.PredPos = waypoints[1], waypoints[1]
-	else
+	local predPos = waypoints[1]
+	if spellData.speed ~= MathHuge and #waypoints > 1 then
 		local t = self:Interception(waypoints[1], waypoints[2], sourcePos, moveSpeed, spellData.speed, 0)
-		local pos = t > 0 and self:GetPositionAfter(waypoints, moveSpeed, t) or data.dash.endPos
-		if pos == data.dash.endPos then return output end
-		output.CastPos, output.PredPos = pos, pos
+		if t <= 0 then return output end
+		predPos = self:GetPositionAfter(waypoints, moveSpeed, t)
+	end
+	local timeToHit = self:CalcTravelTime(sourcePos, predPos, spellData)
+	if predPos == self:To2D(unit.pathing.endPos) then
+		if MathMax(0, timeToHit - spellData.radius / moveSpeed + 0.07) >=
+			self:Distance(unitPos, data.dash.endPos) / moveSpeed then return output end
 	end
 	local y = unit.pos.y; output.CanHit = true
-	output.TimeToHit = self:CalcTravelTime(sourcePos, output.CastPos, spellData)
-	output.CastPos, output.PredPos = self:To3D(output.CastPos, y), self:To3D(output.PredPos, y)
+	output.TimeToHit, output.CastPos, output.PredPos =
+		timeToHit, self:To3D(predPos, y), self:To3D(predPos, y)
 	return output
 end
 
@@ -878,14 +897,15 @@ function PremiumPred:PredictUnitPosition(source, unit, spellData)
 		if not unit.posTo then return output end
 		local endPos = Point2(unitPos):Extended(self:To2D(unit.posTo), 12500)
 		unitPos = Point2(unitPos):Extended(endPos, moveSpeed * (GameTimer() - data.mia))
-		if MapPosition:intersectsWall(LineSegment(Point(unit.pos.x, unit.pos.z), Point(unitPos.x, unitPos.y))) then return output end
+		if MapPosition:intersectsWall(LineSegment(Point(unit.pos.x, unit.pos.z),
+			Point(unitPos.x, unitPos.y))) then return output end
 		waypoints = {unitPos, endPos}
 	end
 	if not self:IsMoving(unit) and #waypoints == 0 then
 		output.CastPos, output.PredPos = unitPos, unitPos
 	else
 		if #waypoints == 0 then waypoints = self:GetWaypoints(unit) end
-		local threshold = (spellData.radius - 1) / moveSpeed
+		local threshold = MathMax(0, (spellData.radius - 1) / moveSpeed)
 		local delay = (spellData.delay + self.PPMenu.Latency:Value() / 2000 + 0.07)
 		if spellData.speed == MathHuge then
 			output.PredPos = self:GetPositionAfter(waypoints, moveSpeed, delay)
@@ -898,7 +918,7 @@ function PremiumPred:PredictUnitPosition(source, unit, spellData)
 				for i = 1, #waypoints - 1 do
 					local a, b = waypoints[i], waypoints[i + 1]
 					local timeB = self:Distance(a, b) / moveSpeed
-					a = a - moveSpeed * totalTime * Point2(b - a):Normalized()
+					a = Point2(a):Extended(b, -moveSpeed * totalTime)
 					local t = self:Interception(a, b, sourcePos, moveSpeed, spellData.speed, totalTime)
 					if t > 0 and t >= totalTime and t <= totalTime + timeB then
 						output.PredPos = self:GetPositionAfter(waypoints, moveSpeed, t)
