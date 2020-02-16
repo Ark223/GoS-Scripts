@@ -958,7 +958,7 @@ function PremiumPred:GetHitChance(source, unit, castPos, spellData, timeToHit, c
 	--			(data.avgLength / self:Distance(sourcePos, castPos) / 2 + 0.5) or 1
 	hitChance = self:IsDashing(unit) and 1 or MathMax(0, MathMin(1, hitChance * mod))
 	if not unit.visible then hitChance = hitChance / 2 end
-	local boundingRadius, flags = unit.boundingRadius or 65, spellData.collision
+	local boundingRadius, flags = spellData.type == "linear" and spellData.speed ~= MathHuge and unit.boundingRadius or 0, spellData.collision
 	if self:DistanceSquared(sourcePos, castPos) > (spellData.range * spellData.range - boundingRadius * boundingRadius) then hitChance = 0
 	elseif flags and #flags > 0 and self:IsColliding(source, self:To3D(castPos), spellData, flags, unit) then hitChance = -1 end
 	return hitChance
