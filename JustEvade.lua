@@ -1540,15 +1540,15 @@ function JEvade:IsAboutToHit(spell, pos, extra)
 	if extra and evadeSpell and evadeSpell.type ~= 2 then return false end
 	local moveSpeed, myPos = self:GetMovementSpeed(extra, evadeSpell), self.MyHeroPos
 	if moveSpeed == MathHuge then return false end
-	local diff, safety = GameTimer() - spell.startTime, self.JEMenu.Core.GP:Value() / 2000
+	local diff, latency = GameTimer() - spell.startTime, self.JEMenu.Core.GP:Value() / 2000
 	if spell.type == "linear" and spell.speed ~= MathHuge then
-		local t = MathMax(0, self:Distance(myPos, pos) / moveSpeed + safety + diff - spell.delay)
+		local t = MathMax(0, self:Distance(myPos, pos) / moveSpeed + latency + diff - spell.delay)
 		t = MathMax(0, MathMin(self:Distance(spell.position, spell.endPos), t * spell.speed))
 		local fPos = Point2D(spell.position):Extended(spell.endPos, t)
 		local col = self:ClosestPointOnSegment(spell.position, fPos, myPos)
 		return self:Distance(myPos, col) <= (spell.radius + self.BoundingRadius + 5)
 	end
-	local t = MathMax(0, spell.range / spell.speed + spell.delay - safety - diff)
+	local t = MathMax(0, spell.range / spell.speed + spell.delay - latency - diff)
 	local fPos = Point2D(myPos):Extended(pos, moveSpeed * t)
 	return self:IsPointInPolygon(spell.path, fPos)
 end
