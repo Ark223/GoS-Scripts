@@ -1151,7 +1151,7 @@ function JEvade:__init()
 		if unit and unit.team ~= myHero.team then TableInsert(self.Enemies, {unit = unit, spell = nil, missile = nil}) end
 	end
 	TableSort(self.Enemies, function(a, b) return a.unit.charName < b.unit.charName end)
-	self.JEMenu = MenuElement({type = MENU, id = "JustEvade", name = "JustEvade v"..IntVer})
+	self.JEMenu = MenuElement({type = MENU, id = "JustEvade", name = "Just Evade v"..IntVer})
 	self.JEMenu:MenuElement({id = "Core", name = "Core Settings", type = MENU})
 	self.JEMenu.Core:MenuElement({id = "SmoothEvade", name = "Enable Smooth Evading", value = true})
 	self.JEMenu.Core:MenuElement({id = "LimitRange", name = "Limit Detection Range", value = true})
