@@ -12,6 +12,10 @@
 
 	Changelog:
 
+	v1.1.2
+	+ Improved hit prediction for linear skillshots
+	+ Removed 'Evade Mode' menu option and replaced 'Safety Check Sensitivity' with 'Average Game Ping'
+
 	v1.1.1
 	+ Fixed MapPosition callbacks
 
@@ -69,7 +73,7 @@ local function ReadFile(file)
 	txt:close(); return result
 end
 
-local Version, IntVer = 1.11, "1.1.1"
+local Version, IntVer = 1.12, "1.1.2"
 local function AutoUpdate()
 	DownloadFile("https://raw.githubusercontent.com/Ark223/GoS-Scripts/master/JustEvade.version", SCRIPT_PATH .. "JustEvade.version")
 	if tonumber(ReadFile(SCRIPT_PATH .. "JustEvade.version")) > Version then
@@ -1152,10 +1156,10 @@ function JEvade:__init()
 	self.JEMenu.Core:MenuElement({id = "SmoothEvade", name = "Enable Smooth Evading", value = true})
 	self.JEMenu.Core:MenuElement({id = "LimitRange", name = "Limit Detection Range", value = true})
 	self.JEMenu.Core:MenuElement({id = "CQ", name = "Circle Segments Quality", value = 16, min = 10, max = 25, step = 1})
-	self.JEMenu.Core:MenuElement({id = "DS", name = "Diagonal Search Step", value = 25, min = 5, max = 100, step = 5})
-	self.JEMenu.Core:MenuElement({id = "DC", name = "Diagonal Points Count", value = 3, min = 1, max = 8, step = 1})
+	self.JEMenu.Core:MenuElement({id = "DS", name = "Diagonal Search Step", value = 20, min = 5, max = 100, step = 5})
+	self.JEMenu.Core:MenuElement({id = "DC", name = "Diagonal Points Count", value = 4, min = 1, max = 8, step = 1})
 	self.JEMenu.Core:MenuElement({id = "LR", name = "Limited Detection Range", value = 5250, min = 500, max = 10000, step = 250})
-	self.JEMenu.Core:MenuElement({id = "SS", name = "Safety Check Sensitivity", value = 5, min = 0, max = 100, step = 1})
+	self.JEMenu.Core:MenuElement({id = "GP", name = "Average Game Ping", value = 50, min = 0, max = 250, step = 5})
 	self.JEMenu:MenuElement({id = "Main", name = "Main Settings", type = MENU})
 	self.JEMenu.Main:MenuElement({id = "Evade", name = "Enable Evade", value = true})
 	self.JEMenu.Main:MenuElement({id = "Dodge", name = "Dodge Spells", value = true})
@@ -1181,7 +1185,6 @@ function JEvade:__init()
 						self.JEMenu.Spells[j]:MenuElement({id = "Draw"..j, name = "Draw Spell", value = true})
 						self.JEMenu.Spells[j]:MenuElement({id = "Force"..j, name = "Force To Dodge", value = spell.danger >= 4})
 						if spell.fow then self.JEMenu.Spells[j]:MenuElement({id = "FOW"..j, name = "FOW Detection", value = true}) end
-						self.JEMenu.Spells[j]:MenuElement({id = "Mode"..j, name = "Evade Mode", drop = {"Optimal Path", "Mouse Position"}, value = 1})
 						self.JEMenu.Spells[j]:MenuElement({id = "HP"..j, name = "%HP To Dodge Spell", value = 100, min = 0, max = 100, step = 5})
 						self.JEMenu.Spells[j]:MenuElement({id = "ER"..j, name = "Extra Radius", value = 0, min = 0, max = 100, step = 5})
 						self.JEMenu.Spells[j]:MenuElement({id = "Danger"..j, name = "Danger Level", value = (spell.danger or 1), min = 1, max = 5, step = 1})
@@ -1206,7 +1209,8 @@ function JEvade:__init()
 	self.SpecialSpells = {
 		["PantheonR"] = function(sP, eP, data)
 			local sP2, eP2 = Point2D(eP):Extended(sP, 1150), self:AppendVector(sP, eP, 200)
-			return self:RectangleToPolygon(sP2, eP2, data.radius, self.BoundingRadius), self:RectangleToPolygon(sP2, eP2, data.radius) end,
+			return self:RectangleToPolygon(sP2, eP2, data.radius, self.BoundingRadius),
+				self:RectangleToPolygon(sP2, eP2, data.radius) end,
 		["ZoeE"] = function(sP, eP, data)
 			local p1 = self:CircleToPolygon(eP, data.radius + self.BoundingRadius, self.JEMenu.Core.CQ:Value())
 			local p2 = self:CircleToPolygon(eP, data.radius, self.JEMenu.Core.CQ:Value())
@@ -1273,7 +1277,8 @@ function JEvade:__init()
 			return XPolygon:OffsetPolygon(path, self.BoundingRadius), path end,
 		["SettE"] = function(sP, eP, data)
 			local sPos = Point2D(sP):Extended(eP, -data.range)
-			return self:RectangleToPolygon(sPos, eP, data.radius, self.BoundingRadius), self:RectangleToPolygon(sPos, eP, data.radius) end,
+			return self:RectangleToPolygon(sPos, eP, data.radius, self.BoundingRadius),
+				self:RectangleToPolygon(sPos, eP, data.radius) end,
 		["SylasQ"] = function(sP, eP, data)
 			local dir = Point2D(eP - sP):Perpendicular():Normalized() * 100
 			local s1, s2 = Point2D(sP - dir), Point2D(sP + dir)
@@ -1285,14 +1290,18 @@ function JEvade:__init()
 			return XPolygon:OffsetPolygon(path, self.BoundingRadius), path end,
 		["ThreshEFlay"] = function(sP, eP, data)
 			local sPos = Point2D(sP):Extended(eP, -data.range)
-			return self:RectangleToPolygon(sPos, eP, data.radius, self.BoundingRadius), self:RectangleToPolygon(sPos, eP, data.radius) end,
+			return self:RectangleToPolygon(sPos, eP, data.radius, self.BoundingRadius),
+				self:RectangleToPolygon(sPos, eP, data.radius) end,
 		["ZiggsQ"] = function(sP, eP, data)
 			local quality = self.JEMenu.Core.CQ:Value()
-			local p1, bp1 = self:CircleToPolygon(eP, data.radius, quality), self:CircleToPolygon(eP, data.radius + self.BoundingRadius, quality)
+			local p1, bp1 = self:CircleToPolygon(eP, data.radius, quality),
+				self:CircleToPolygon(eP, data.radius + self.BoundingRadius, quality)
 			local e1 = Point2D(sP):Extended(eP, 1.4 * self:Distance(sP, eP))
-			local p2, bp2 = self:CircleToPolygon(e1, data.radius, quality), self:CircleToPolygon(e1, data.radius + self.BoundingRadius, quality)
+			local p2, bp2 = self:CircleToPolygon(e1, data.radius, quality),
+				self:CircleToPolygon(e1, data.radius + self.BoundingRadius, quality)
 			local e2 = Point2D(eP):Extended(e1, 1.69 * self:Distance(eP, e1))
-			local p3, bp3 = self:CircleToPolygon(e2, data.radius, quality), self:CircleToPolygon(e2, data.radius + self.BoundingRadius, quality)
+			local p3, bp3 = self:CircleToPolygon(e2, data.radius, quality),
+				self:CircleToPolygon(e2, data.radius + self.BoundingRadius, quality)
 			self:AddSpell(bp1, p1, sP, eP, data, data.speed, data.range, 0.25, data.radius, "ZiggsQ")
 			self:AddSpell(bp2, p2, sP, eP, data, data.speed, data.range, 0.75, data.radius, "ZiggsQ")
 			self:AddSpell(bp3, p3, sP, eP, data, data.speed, data.range, 1.25, data.radius, "ZiggsQ")
@@ -1300,21 +1309,26 @@ function JEvade:__init()
 	}
 	self.SpellTypes = {
 		["linear"] = function(sP, eP, data)
-			return self:RectangleToPolygon(sP, eP, data.radius, self.BoundingRadius), self:RectangleToPolygon(sP, eP, data.radius) end,
+			return self:RectangleToPolygon(sP, eP, data.radius, self.BoundingRadius),
+				self:RectangleToPolygon(sP, eP, data.radius) end,
 		["threeway"] = function(sP, eP, data)
-			return self:RectangleToPolygon(sP, eP, data.radius, self.BoundingRadius), self:RectangleToPolygon(sP, eP, data.radius) end,
+			return self:RectangleToPolygon(sP, eP, data.radius, self.BoundingRadius),
+				self:RectangleToPolygon(sP, eP, data.radius) end,
 		["rectangular"] = function(sP, eP, data)
-			local sP2 = eP - Point2D(eP - sP):Perpendicular():Normalized() * (data.radius2 or 400)
-			local eP2 = eP + Point2D(eP - sP):Perpendicular():Normalized() * (data.radius2 or 400)
-			return self:RectangleToPolygon(sP2, eP2, data.radius / 2, self.BoundingRadius), self:RectangleToPolygon(sP2, eP2, data.radius / 2) end,
+			local dir = Point2D(eP - sP):Perpendicular():Normalized() * (data.radius2 or 400)
+			local sP2, eP2 = Point2D(eP - dir), Point2D(eP + dir)
+			return self:RectangleToPolygon(sP2, eP2, data.radius / 2, self.BoundingRadius),
+				self:RectangleToPolygon(sP2, eP2, data.radius / 2) end,
 		["circular"] = function(sP, eP, data)
 			local quality = self.JEMenu.Core.CQ:Value()
-			return self:CircleToPolygon(eP, data.radius + self.BoundingRadius, quality), self:CircleToPolygon(eP, data.radius, quality) end,
+			return self:CircleToPolygon(eP, data.radius + self.BoundingRadius, quality),
+				self:CircleToPolygon(eP, data.radius, quality) end,
 		["conic"] = function(sP, eP, data)
 			local path = self:ConeToPolygon(sP, eP, data.angle)
 			return XPolygon:OffsetPolygon(path, self.BoundingRadius), path end,
 		["polygon"] = function(sP, eP, data)
-			return self:RectangleToPolygon(sP, eP, data.radius, self.BoundingRadius), self:RectangleToPolygon(sP, eP, data.radius) end
+			return self:RectangleToPolygon(sP, eP, data.radius, self.BoundingRadius),
+				self:RectangleToPolygon(sP, eP, data.radius) end
 	}
 	DelayAction(function()
 		self:LoadEvadeSpells()
@@ -1374,15 +1388,18 @@ function JEvade:CalculateEndPos(startPos, placementPos, unitPos, speed, range, r
 				local startPos, minions = Point2D(startPos):Extended(placementPos, 45), {}
 				for i = 1, GameMinionCount() do
 					local minion = GameMinion(i); local minionPos = self:To2D(minion.pos)
-					if minion and minion.team == myHero.team and minion.valid and Minions[minion.charName] and self:Distance(minionPos, startPos) <= range and minion.maxHealth > 295 and minion.health > 5 then
-						local col = self:ClosestPointOnSegment(startPos, placementPos, minionPos)
-						if col and self:Distance(col, minionPos) < ((minion.boundingRadius or 45) / 2 + radius) then
-							TableInsert(minions, minionPos)
+					if minion and minion.team == myHero.team and minion.valid and Minions[minion.charName] and
+						self:Distance(minionPos, startPos) <= range and minion.maxHealth > 295 and minion.health > 5 then
+							local col = self:ClosestPointOnSegment(startPos, placementPos, minionPos)
+							if col and self:Distance(col, minionPos) < ((minion.boundingRadius or 45) / 2 + radius) then
+								TableInsert(minions, minionPos)
 						end
 					end
 				end
 				if #minions > 0 then
-					TableSort(minions, function(a, b) return self:DistanceSquared(a, startPos) < self:DistanceSquared(b, startPos) end)
+					TableSort(minions, function(a, b) return
+						self:DistanceSquared(a, startPos) <
+						self:DistanceSquared(b, startPos) end)
 					local range2 = self:Distance(startPos, minions[1])
 					local endPos = Point2D(startPos):Extended(placementPos, range2)
 					return endPos, range2
@@ -1390,7 +1407,8 @@ function JEvade:CalculateEndPos(startPos, placementPos, unitPos, speed, range, r
 			end
 		end
 	end
-	return endPos, not extend and self:Distance(startPos, endPos) or range
+	return endPos, not extend and
+		self:Distance(startPos, endPos) or range
 end
 
 function JEvade:CircleToPolygon(pos, radius, quality)
@@ -1439,10 +1457,11 @@ function JEvade:FixPos(pos, y)
 	return Vector(pos.x, y or myHero.pos.y, pos.y):To2D()
 end
 
-function JEvade:GetBestEvadePos(spells, mode, extra, force)
+function JEvade:GetBestEvadePos(spells, radius, mode, extra, force)
 	local evadeModes = {
 		[1] = function(a, b) return self:DistanceSquared(a, self.MyHeroPos) < self:DistanceSquared(b, self.MyHeroPos) end,
-		[2] = function(a, b) return self:DistanceSquared(a, self.MousePos) < self:DistanceSquared(b, self.MousePos) end
+		[2] = function(a, b) local mPos = self.MyHeroPos:Extended(self.MousePos, radius + self.BoundingRadius);
+							return self:DistanceSquared(a, mPos) < self:DistanceSquared(b, mPos) end
 	}
 	local points = {}
 	for i, spell in ipairs(spells) do
@@ -1461,8 +1480,9 @@ function JEvade:GetBestEvadePos(spells, mode, extra, force)
 					for k = -step, step, 1 do
 						local candidate = Point2D(original + k * self.JEMenu.Core.DS:Value() * direction)
 						local extended = self:AppendVector(self.MyHeroPos, candidate, self.BoundingRadius)
-						candidate = self:AppendVector(self.MyHeroPos, candidate, 10)
-						if self:IsSafePos(candidate, extra) and not MapPosition:inWall(self:To3D(extended)) then TableInsert(points, candidate) end
+						candidate = self:AppendVector(self.MyHeroPos, candidate, 5)
+						if self:IsSafePos(candidate, extra) and not
+							MapPosition:inWall(self:To3D(extended)) then TableInsert(points, candidate) end
 					end
 				end
 			end
@@ -1481,7 +1501,7 @@ function JEvade:GetExtendedSafePos(pos)
 	local distance, positions = self:Distance(self.MyHeroPos, pos) + 390, {}
 	for i = 1, GameMinionCount() do
 		local minion = GameMinion(i)
-		if minion and not minion.dead then
+		if minion and minion.valid and minion.visible and not minion.dead then
 			local minionPos = self:To2D(minion.pos)
 			if self:Distance(self.MyHeroPos, minionPos) <= distance then
 				TableInsert(positions, minionPos)
@@ -1493,7 +1513,7 @@ function JEvade:GetExtendedSafePos(pos)
 		local ext = self:AppendVector(self.MyHeroPos, pos, self.BoundingRadius * i)
 		if i > 2 and not MapPosition:inWall(self:To3D(ext)) or i == 2 then
 			for j, minionPos in ipairs(positions) do
-				if self:Distance(ext, minionPos) < self.BoundingRadius then collision = true; break end
+				if self:Distance(ext, minionPos) <= self.BoundingRadius then collision = true; break end
 			end
 			if not collision then return ext end
 		end
@@ -1502,7 +1522,8 @@ function JEvade:GetExtendedSafePos(pos)
 end
 
 function JEvade:GetMovePath()
-	return myHero.pathing.endPos and self:To2D(myHero.pathing.endPos) or nil
+	return self:IsMoving() and myHero.pathing.endPos ~= nil
+		and self:To2D(myHero.pathing.endPos) or nil
 end
 
 function JEvade:GetPaths(startPos, endPos, data, name)
@@ -1519,30 +1540,16 @@ function JEvade:IsAboutToHit(spell, pos, extra)
 	if extra and evadeSpell and evadeSpell.type ~= 2 then return false end
 	local moveSpeed, myPos = self:GetMovementSpeed(extra, evadeSpell), self.MyHeroPos
 	if moveSpeed == MathHuge then return false end
-	local pos = self:AppendVector(myPos, pos, 9999)
-	local diff = MathMax(0, GameTimer() - spell.startTime)
-	local extraSafety = self.JEMenu.Core.SS:Value() / 200 + 0.07
+	local diff, safety = GameTimer() - spell.startTime, self.JEMenu.Core.GP:Value() / 2000
 	if spell.type == "linear" and spell.speed ~= MathHuge then
-		if spell.delay > 0 and diff < spell.delay then
-			myPos = Point2D(myPos):Extended(pos, (spell.delay - diff) * moveSpeed)
-			if not self:IsPointInPolygon(spell.path, myPos) then return false end
-		end
-		local va = Point2D(pos - myPos):Normalized() * moveSpeed
-		local vb = Point2D(spell.endPos - spell.position):Normalized() * spell.speed
-		local da, db = Point2D(myPos - spell.position), Point2D(va - vb)
-		local a, b = self:DotProduct(db, db), 2 * self:DotProduct(da, db)
-		local c = self:DotProduct(da, da) - (spell.radius + self.BoundingRadius * 1.25) ^ 2
-		local delta = b * b - 4 * a * c
-		if delta >= 0 then
-			local rtDelta = MathSqrt(delta)
-			local t1, t2 = (-b + rtDelta) / (2 * a), (-b - rtDelta) / (2 * a)
-			local t = MathMin(t1, t2)
-			if t < 0 then t = MathMax(t1, t2) end
-			return (extraSafety + t) > 0
-		end
+		local t = MathMax(0, self:Distance(myPos, pos) / moveSpeed + safety + diff - spell.delay)
+		t = MathMax(0, MathMin(self:Distance(spell.position, spell.endPos), t * spell.speed))
+		local fPos = Point2D(spell.position):Extended(spell.endPos, t)
+		local col = self:ClosestPointOnSegment(spell.position, fPos, myPos)
+		return self:Distance(myPos, col) <= (spell.radius + self.BoundingRadius + 5)
 	else
-		local maxTime = MathMax(0, spell.range / spell.speed + spell.delay - diff - extraSafety)
-		local fPos = Point2D(myPos):Extended(pos, maxTime * moveSpeed)
+		local t = MathMax(0, spell.range / spell.speed + spell.delay - safety - diff)
+		local fPos = Point2D(myPos):Extended(pos, moveSpeed * t)
 		return self:IsPointInPolygon(spell.path, fPos)
 	end
 	return false
@@ -1627,11 +1634,11 @@ end
 
 function JEvade:AddSpell(p1, p2, sP, eP, data, speed, range, delay, radius, name)
 	TableInsert(self.DetectedSpells, {
-		path = p1, path2 = p2, position = sP, startPos = sP, endPos = eP,
-		speed = speed, range = range, delay = delay, radius = radius,
-		radius2 = data.radius2, angle = data.angle, name = name, startTime = GameTimer(),
-		type = data.type, danger = self.JEMenu.Spells[name]["Danger"..name]:Value() or 1,
-		cc = data.cc, collision = data.collision, windwall = data.windwall, y = data.y
+		path = p1, path2 = p2, position = sP, startPos = sP, endPos = eP, speed = speed,
+		range = range, delay = delay, radius = radius, radius2 = data.radius2, angle = data.angle,
+		name = name, startTime = GameTimer() - self.JEMenu.Core.GP:Value() / 2000, type = data.type,
+		danger = self.JEMenu.Spells[name]["Danger"..name]:Value() or 1, cc = data.cc,
+		collision = data.collision, windwall = data.windwall, y = data.y
 	})
 end
 
@@ -1649,7 +1656,8 @@ function JEvade:GetDodgeableSpells()
 	local paths, result = {}, {}
 	for i, s in ipairs(self.DetectedSpells) do
 		self:SpellManager(i, s)
-		if self.JEMenu.Main.Dodge:Value() and self.JEMenu.Spells[s.name]["Dodge"..s.name]:Value() and self:GetHealthPercent() <= self.JEMenu.Spells[s.name]["HP"..s.name]:Value() then
+		if self.JEMenu.Main.Dodge:Value() and self.JEMenu.Spells[s.name]["Dodge"..s.name]:Value() and
+			self:GetHealthPercent() <= self.JEMenu.Spells[s.name]["HP"..s.name]:Value() then
 			if self.DoD and s.danger >= 4 or not self.DoD then TableInsert(result, s) end
 		end
 	end
@@ -1726,7 +1734,8 @@ end
 
 function JEvade:ValidTarget(target, range)
 	local range = range or MathHuge
-	return target and target.valid and target.visible and not target.dead and self:DistanceSquared(self.MyHeroPos, self:To2D(target.pos)) <= range * range
+	return target and target.valid and target.visible and not target.dead and
+		self:DistanceSquared(self.MyHeroPos, self:To2D(target.pos)) <= range * range
 end
 
 --[[
@@ -1774,8 +1783,8 @@ function JEvade:Tick()
 						if self.MissileID < id then
 							self.MissileID = id
 							self:OnCreateMissile(unit, data)
-							for i = 1, #self.OnCreateMisCBs do self.OnCreateMisCBs[i](unit, data) end
-							break
+							for i = 1, #self.OnCreateMisCBs do
+								self.OnCreateMisCBs[i](unit, data) end break
 						end
 					end
 				end
@@ -1802,7 +1811,9 @@ function JEvade:Tick()
 				end
 			end
 			if #ints > 0 then
-				TableSort(ints, function(a, b) return self:DistanceSquared(self.MyHeroPos, a) < self:DistanceSquared(self.MyHeroPos, b) end)
+				TableSort(ints, function(a, b) return
+					self:DistanceSquared(self.MyHeroPos, a) <
+					self:DistanceSquared(self.MyHeroPos, b) end)
 				local movePos = self:PrependVector(self.MyHeroPos, ints[1], self.BoundingRadius / 2)
 				self:MoveToPos(movePos)
 			end
@@ -1819,19 +1830,19 @@ function JEvade:Tick()
 end
 
 function JEvade:CoreManager(s)
-	local mode = self.JEMenu.Spells[s.name]["Mode"..s.name]:Value() or 1
 	if self:IsPointInPolygon(s.path, self.MyHeroPos) then
 		if self.OldTimer ~= self.NewTimer then
 			local evadeSpells = self.EvadeSpellData
-			local flashUsage = self.Flash2 and self.JEMenu.Spells.Flash.US:Value() and self:IsReady(self.Flash2) and s.danger == 5
-			local safePos = self:GetBestEvadePos(self.DodgeableSpells, mode, nil, false)
+			local flashUsage = self.Flash2 and self.JEMenu.Spells.Flash.US:Value()
+				and self:IsReady(self.Flash2) and s.danger == 5
+			local safePos = self:GetBestEvadePos(self.DodgeableSpells, s.radius, 2, nil, false)
 			if safePos then
 				self.ExtendedPos = self:GetExtendedSafePos(safePos)
 				self.SafePos, self.Evading = safePos, true
 			elseif evadeSpells and #evadeSpells > 0 or flashUsage then
 				local result = 0
 				for i = 1, #evadeSpells do
-					local alternPos = self:GetBestEvadePos(self.DodgeableSpells, 1, i, false)
+					local alternPos = self:GetBestEvadePos(self.DodgeableSpells, s.radius, 1, i, false)
 					result = self:Avoid(s, alternPos, evadeSpells[i])
 					if result > 0 then
 						if result == 1 then
@@ -1842,7 +1853,7 @@ function JEvade:CoreManager(s)
 					end
 				end
 				if result == 0 then
-					local dodgePos = self:GetBestEvadePos(self.DodgeableSpells, 1, true, true)
+					local dodgePos = self:GetBestEvadePos(self.DodgeableSpells, s.radius, 1, true, true)
 					if dodgePos then
 						if flashUsage then result = 1; self:CastSpell(self.Flash, self:To3D(dodgePos))
 						elseif self.JEMenu.Spells[s.name]["Force"..s.name]:Value() then
@@ -1885,7 +1896,8 @@ function JEvade:DodgeSpell(spell)
 end
 
 function JEvade:Avoid(spell, dodgePos, data)
-	if self:IsReady(data.slot) and self.JEMenu.Spells[data.name]["US"..data.name]:Value() and spell.danger >= self.JEMenu.Spells[data.name]["Danger"..data.name]:Value() then
+	if self:IsReady(data.slot) and self.JEMenu.Spells[data.name]["US"..data.name]:Value()
+		and spell.danger >= self.JEMenu.Spells[data.name]["Danger"..data.name]:Value() then
 		if dodgePos and (data.type == 1 or data.type == 2) then
 			if data.type == 1 then
 				local dashPos = Point2D(self.MyHeroPos):Extended(dodgePos, data.range)
@@ -1942,7 +1954,8 @@ function JEvade:OnProcessSpell(unit, spell)
 	if unit and spell then
 		if unit.team ~= myHero.team then
 			local unitPos, name = self:To2D(unit.pos), spell.name
-			if self.JEMenu.Core.LimitRange:Value() and self:Distance(self.MyHeroPos, unitPos) > self.JEMenu.Core.LR:Value() then return end
+			if self.JEMenu.Core.LimitRange:Value() and self:Distance(self.MyHeroPos, unitPos)
+				> self.JEMenu.Core.LR:Value() then return end
 			if SpellDatabase[unit.charName] and SpellDatabase[unit.charName][name] then
 				local data = self:CopyTable(SpellDatabase[unit.charName][name])
 				if data.exception then return end
@@ -1973,7 +1986,8 @@ end
 function JEvade:OnCreateMissile(unit, missile)
 	local name, unitPos = missile.name, self:To2D(unit.pos)
 	if string.find(name, "ttack") or not SpellDatabase[unit.charName] then return end
-	if self.JEMenu.Core.LimitRange:Value() and self:Distance(self.MyHeroPos, unitPos) > self.JEMenu.Core.LR:Value() then return end
+	if self.JEMenu.Core.LimitRange:Value() and self:Distance(self.MyHeroPos, unitPos)
+		> self.JEMenu.Core.LR:Value() then return end
 	local menuName = ""
 	for i, val in pairs(SpellDatabase[unit.charName]) do
 		if val.fow then
@@ -1983,7 +1997,8 @@ function JEvade:OnCreateMissile(unit, missile)
 	end
 	if menuName == "" then return end
 	local data = self:CopyTable(SpellDatabase[unit.charName][menuName])
-	if self.JEMenu.Spells[menuName]["FOW"..menuName]:Value() and not unit.visible and not data.exception or (data.exception and unit.visible) then
+	if self.JEMenu.Spells[menuName]["FOW"..menuName]:Value() and not
+		unit.visible and not data.exception or (data.exception and unit.visible) then
 		local startPos, placementPos = self:To2D(missile.startPos), self:To2D(missile.endPos)
 		local endPos, range = self:CalculateEndPos(startPos, placementPos, unitPos, data.speed, data.range, data.radius, data.collision, data.type, data.extend)
 		data.range, data.radius, data.y = range, data.radius + (self.JEMenu.Spells[menuName]["ER"..menuName]:Value() or 0), missile.endPos.y
