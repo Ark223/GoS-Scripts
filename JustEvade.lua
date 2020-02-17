@@ -1541,7 +1541,7 @@ function JEvade:IsAboutToHit(spell, pos, extra)
 	local moveSpeed, myPos = self:GetMovementSpeed(extra, evadeSpell), self.MyHeroPos
 	if moveSpeed == MathHuge then return false end
 	local diff, latency = GameTimer() - spell.startTime, self.JEMenu.Core.GP:Value() / 2000
-	if spell.type == "linear" and spell.speed ~= MathHuge then
+	if spell.speed ~= MathHuge and spell.type == "linear" or spell.type == "threeway" then
 		local t = MathMax(0, self:Distance(myPos, pos) / moveSpeed + latency + diff - spell.delay)
 		t = MathMax(0, MathMin(self:Distance(spell.position, spell.endPos), t * spell.speed))
 		local fPos = Point2D(spell.position):Extended(spell.endPos, t)
