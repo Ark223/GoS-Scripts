@@ -1547,12 +1547,10 @@ function JEvade:IsAboutToHit(spell, pos, extra)
 		local fPos = Point2D(spell.position):Extended(spell.endPos, t)
 		local col = self:ClosestPointOnSegment(spell.position, fPos, myPos)
 		return self:Distance(myPos, col) <= (spell.radius + self.BoundingRadius + 5)
-	else
-		local t = MathMax(0, spell.range / spell.speed + spell.delay - safety - diff)
-		local fPos = Point2D(myPos):Extended(pos, moveSpeed * t)
-		return self:IsPointInPolygon(spell.path, fPos)
 	end
-	return false
+	local t = MathMax(0, spell.range / spell.speed + spell.delay - safety - diff)
+	local fPos = Point2D(myPos):Extended(pos, moveSpeed * t)
+	return self:IsPointInPolygon(spell.path, fPos)
 end
 
 function JEvade:IsDangerous(pos)
