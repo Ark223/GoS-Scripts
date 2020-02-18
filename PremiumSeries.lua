@@ -759,7 +759,7 @@ function Cassiopeia:AutoAttackHandler(mode)
 end
 
 function Cassiopeia:Clear()
-	if GameTimer() - self.QueueTimer < 0.25 then return end
+	if GameTimer() - self.QueueTimer <= 0.25 then return end
 	local minions = Manager:GetMinionsAround(self.MyPos, self.E.range)
 	if Manager:IsReady(_Q) and self.CassiopeiaMenu.LaneClear.UseQ:Value() and #minions >= 3 and
 		Manager:GetPercentMana() > self.CassiopeiaMenu.LaneClear.ManaQ:Value() then
@@ -793,7 +793,7 @@ function Cassiopeia:Clear()
 end
 
 function Cassiopeia:Combo(targetQ, targetW, targetE, targetR)
-	if GameTimer() - self.QueueTimer < 0.25 then return end
+	if GameTimer() - self.QueueTimer <= 0.25 then return end
 	if targetQ and Manager:IsReady(_Q) and self.CassiopeiaMenu.Combo.UseQ:Value() then
 		local modeQ = self.CassiopeiaMenu.Combo.ModeQ:Value()
 		if modeQ and self:PoisonDuration(targetQ) < self.Q.delay or not modeQ then
@@ -832,7 +832,7 @@ function Cassiopeia:Combo(targetQ, targetW, targetE, targetR)
 end
 
 function Cassiopeia:Harass(targetQ, targetW, targetE)
-	if GameTimer() - self.QueueTimer < 0.25 then return end
+	if GameTimer() - self.QueueTimer <= 0.25 then return end
 	if targetQ and Manager:IsReady(_Q) and self.CassiopeiaMenu.Harass.UseQ:Value() then
 		local modeQ = self.CassiopeiaMenu.Harass.ModeQ:Value()
 		if modeQ and self:PoisonDuration(targetQ) < self.Q.delay or not modeQ then
@@ -998,7 +998,7 @@ function Vayne:IsAbleToStun(unit, pos)
 end
 
 function Vayne:UseE()
-	if GameTimer() - self.QueueTimer < 0.25 then return end
+	if GameTimer() - self.QueueTimer <= 0.25 then return end
 	local mode = Manager:GetOrbwalkerMode()
 	local units = Manager:GetEnemiesAround(self.MyPos, self.E.range)
 	for i, unit in ipairs(units) do
@@ -1152,7 +1152,7 @@ function Viktor:CustomCastSpell(startPos, endPos)
 end
 
 function Viktor:GetBestLaserCastPos()
-	if GameTimer() - self.QueueTimer < 0.25 or self.EndPos then return end
+	if GameTimer() - self.QueueTimer <= 0.25 or self.EndPos then return end
 	local candidates = Manager:GetEnemiesAround(self.MyPos, self.E.maxRange)
 	if #candidates == 0 then return end
 	TableSort(candidates, function(a, b) return
@@ -1269,7 +1269,7 @@ function Viktor:OnDraw()
 end
 
 function Viktor:Clear()
-	if GameTimer() - self.QueueTimer < 0.25 or self.EndPos then return end
+	if GameTimer() - self.QueueTimer <= 0.25 or self.EndPos then return end
 	if Manager:IsReady(_E) and self.ViktorMenu.LaneClear.UseE:Value() and
 		Manager:GetPercentMana() > self.ViktorMenu.LaneClear.ManaE:Value() then
 		local minions, points = Manager:GetMinionsAround(self.MyPos, self.E.maxRange), {}
@@ -1299,7 +1299,7 @@ function Viktor:Auto()
 end
 
 function Viktor:Combo(targetQ, targetW, targetR)
-	if GameTimer() - self.QueueTimer < 0.25 or self.EndPos then return end
+	if GameTimer() - self.QueueTimer <= 0.25 or self.EndPos then return end
 	if targetQ and Manager:IsReady(_Q) and self.ViktorMenu.Combo.UseQ:Value() then
 		self.QueueTimer = GameTimer()
 		_G.Control.CastSpell(HK_Q, targetQ.pos)
@@ -1324,7 +1324,7 @@ function Viktor:Combo(targetQ, targetW, targetR)
 end
 
 function Viktor:Harass(targetQ, targetW)
-	if GameTimer() - self.QueueTimer < 0.25 or self.EndPos then return end
+	if GameTimer() - self.QueueTimer <= 0.25 or self.EndPos then return end
 	if targetQ and Manager:IsReady(_Q) and self.ViktorMenu.Harass.UseQ:Value() then
 		self.QueueTimer = GameTimer()
 		_G.Control.CastSpell(HK_Q, targetQ.pos)
@@ -1579,7 +1579,7 @@ function Xerath:AutoR()
 end
 
 function Xerath:Clear()
-	if GameTimer() - self.QueueTimer < 0.25 then return end
+	if GameTimer() - self.QueueTimer <= 0.25 then return end
 	if Manager:IsReady(_Q) and self.XerathMenu.LaneClear.UseQ:Value() and
 		Manager:GetPercentMana() > self.XerathMenu.LaneClear.ManaQ:Value() then
 		local minions, points = Manager:GetMinionsAround(self.MyPos, self.Q.range), {}
@@ -1607,7 +1607,7 @@ function Xerath:Clear()
 end
 
 function Xerath:Action(mode, targetQ, targetWE)
-	if GameTimer() - self.QueueTimer < 0.25 then return end
+	if GameTimer() - self.QueueTimer <= 0.3 then return end
 	if targetWE and Manager:IsReady(_W) and (mode == "Combo" and self.XerathMenu.Combo.UseW:Value() or self.XerathMenu.Harass.UseW:Value()) then
 		local pred = _G.PremiumPrediction:GetAOEPrediction(myHero, targetWE, self.W)
 		if pred.CastPos and pred.HitChance >= self.XerathMenu.HitChance.HCW:Value() / 1000 then
