@@ -111,8 +111,8 @@ local InterrupterSpells = {
 	["Caitlyn"] = {
 		["CaitlynAceintheHole"] = {name = "CaitlynR", displayName = "Ace in the Hole", slot = "R", danger = 3}
 	},
-	["FiddleSticks"] = {
-		["Drain"] = {name = "FiddleSticksW", displayName = "Drain", slot = "W", danger = 2}
+	["Fiddlesticks"] = {
+		["Drain"] = {name = "FiddlesticksW", displayName = "Drain", slot = "W", danger = 2}
 	},
 	["Galio"] = {
 		["GalioW"] = {name = "GalioW", displayName = "Shield of Duran", slot = "W", danger = 1},
@@ -600,6 +600,18 @@ function Manager:IsReady(spell)
 	return GameCanUseSpell(spell) == READY
 end
 
+function Manager:IsUnderTurret(pos)
+	for i = 1, GameTurretCount() do
+		local turret = GameTurret(i)
+		if turret and turret.valid and turret.isEnemy and turret.health > 0 then
+			if Geometry:DistanceSquared(pos, Geometry:To2D(turret.pos)) <= 600625 then
+				return true
+			end
+		end
+	end
+	return false
+end
+
 function Manager:IsValid(unit, range, pos)
 	local range = range or 12500
 	local pos = pos or Geometry:To2D(myHero.pos)
@@ -624,7 +636,7 @@ function Cassiopeia:__init()
 	self.Q = {speed = MathHuge, range = 850, delay = 0.75, radius = 150, windup = 0.25, collision = nil, type = "circular"}
 	self.W = {speed = MathHuge, range = 700, delay = 0.25, radius = 160, windup = 0.25, collision = nil, type = "circular"}
 	self.E = {speed = 2500, range = 700, windup = 0.125}
-	self.R = {speed = MathHuge, range = 725, delay = 0.5, radius = 80, angle = 80, windup = 0.5, collision = nil, type = "conic"}
+	self.R = {speed = MathHuge, range = 725, delay = 0.5, radius = 0, angle = 80, windup = 0.5, collision = nil, type = "conic"}
 	self.IsPoison = function(name) return name == "cassiopeiaqdebuff" or name == "cassiopeiawpoison" end
 	self.CassiopeiaMenu = MenuElement({type = MENU, id = "Cassiopeia", name = "Premium Cassiopeia v" .. Versions[myHero.charName]})
 	self.CassiopeiaMenu:MenuElement({id = "Combo", name = "Combo", type = MENU})
