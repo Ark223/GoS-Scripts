@@ -11,6 +11,10 @@
 
 	Changelog:
 
+	v1.0.6
+	+ Xerath:
+	 - Improved Q cast
+
 	v1.0.5
 	+ Added Vayne, interrupter and custom wall map
 
@@ -39,7 +43,7 @@
 
 --]]
 
-local GlobalVersion = 1.05
+local GlobalVersion = 1.06
 
 local Champions = {
 	["Cassiopeia"] = function() return Cassiopeia:__init() end,
@@ -52,7 +56,7 @@ local Versions = {
 	["Cassiopeia"] = "1.0.3",
 	["Vayne"] = "1.0",
 	["Viktor"] = "1.0",
-	["Xerath"] = "1.0.3"
+	["Xerath"] = "1.0.4"
 }
 
 -- Init
@@ -1499,7 +1503,7 @@ function Xerath:OnTick()
 			if not self.ActiveQ and ControlIsKeyDown(HK_Q) then
 				ControlKeyUp(HK_Q)
 			end
-		end, 0.3)
+		end, 0.25)
 	end
 	local mode = Manager:GetOrbwalkerMode()
 	if mode == "Clear" then self:Clear(); return end
@@ -1579,7 +1583,7 @@ function Xerath:Clear()
 	if Manager:IsReady(_Q) and self.XerathMenu.LaneClear.UseQ:Value() and
 		Manager:GetPercentMana() > self.XerathMenu.LaneClear.ManaQ:Value() then
 		local minions, points = Manager:GetMinionsAround(self.MyPos, self.Q.range), {}
-		if #minions < 6 then return end
+		if not self.ActiveQ and #minions < 6 then return end
 		for i, minion in ipairs(minions) do
 			local predPos = _G.PremiumPrediction:GetFastPrediction(myHero, minion, self.Q)
 			if predPos then TableInsert(points, Geometry:To2D(predPos)) end
@@ -1626,8 +1630,11 @@ function Xerath:Action(mode, targetQ, targetWE)
 		if not self.ActiveQ then ControlKeyDown(HK_Q); return end
 		local moveSpeed = targetQ.ms or 500
 		local range = (GameTimer() - self.InitChargeTimer) * 500 + self.Q.minRange
-		local threshold = moveSpeed >= 500 and moveSpeed * self.Q.delay or self.Q.range - range
-		if range >= MathMin(self.Q.range, Geometry:Distance(self.MyPos, self.LastPos) + threshold) then
+		local predPos = _G.PremiumPrediction:GetFastPrediction(myHero, targetQ, self.Q)
+		if predPos == nil then return end
+		local dist = MathMax(Geometry:Distance(self.MyPos, self.LastPos),
+			Geometry:Distance(self.MyPos, Geometry:To2D(predPos)))
+		if range >= MathMin(self.Q.range, dist + self.Q.radius) then
 			local pred = _G.PremiumPrediction:GetAOEPrediction(myHero, targetQ, self.Q)
 			if pred.CastPos and pred.HitChance >= self.XerathMenu.HitChance.HCQ:Value() / 1000 then
 				self.QueueTimer = GameTimer()
