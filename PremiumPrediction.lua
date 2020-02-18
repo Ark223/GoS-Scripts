@@ -744,7 +744,7 @@ function PremiumPred:Draw()
 	if not self.PPMenu.Debug.Enable:Value() then return end
 	for i = 1, #self.Enemies do
 		local unit = self.Enemies[i]
-		if not unit.dead and unit.valid and unit.visible then
+		if unit.valid and unit.visible and not unit.dead then
 			local spellData = {
 				speed = self.PPMenu.Debug.Huge:Value() and MathHuge or self.PPMenu.Debug.Speed:Value(),
 				range = self.PPMenu.Debug.Range:Value(),
@@ -871,8 +871,7 @@ function PremiumPred:GetDashPrediction(source, unit, spellData)
 	local predPos = waypoints[1]
 	if spellData.speed ~= MathHuge and #waypoints > 1 then
 		local t = self:Interception(waypoints[1], waypoints[2], sourcePos, moveSpeed, spellData.speed, 0)
-		if t <= 0 then return output end
-		predPos = self:GetPositionAfter(waypoints, moveSpeed, t)
+		predPos = t > 0 and self:GetPositionAfter(waypoints, moveSpeed, t) or waypoints[2]
 	end
 	local timeToHit = self:CalcTravelTime(sourcePos, predPos, spellData)
 	if predPos == self:To2D(unit.pathing.endPos) then
