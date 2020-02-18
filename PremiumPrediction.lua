@@ -904,7 +904,7 @@ function PremiumPred:PredictUnitPosition(source, unit, spellData)
 		output.CastPos, output.PredPos = unitPos, unitPos
 	else
 		if #waypoints == 0 then waypoints = self:GetWaypoints(unit) end
-		local threshold = MathMax(0, (spellData.radius - 1) / moveSpeed)
+		local threshold = MathMax(0, spellData.radius / moveSpeed)
 		local delay = (spellData.delay + self.PPMenu.Latency:Value() / 2000 + 0.07)
 		if spellData.speed == MathHuge then
 			output.PredPos = self:GetPositionAfter(waypoints, moveSpeed, delay)
