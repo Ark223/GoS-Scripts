@@ -1503,7 +1503,7 @@ function Xerath:OnTick()
 			if not self.ActiveQ and ControlIsKeyDown(HK_Q) then
 				ControlKeyUp(HK_Q)
 			end
-		end, 0.25)
+		end, 0.3)
 	end
 	local mode = Manager:GetOrbwalkerMode()
 	if mode == "Clear" then self:Clear(); return end
