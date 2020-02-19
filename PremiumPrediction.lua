@@ -15,7 +15,7 @@ local function ReadFile(file)
 	txt:close(); return result
 end
 
-local Version, IntVer = 1.09, "1.0.9"
+local Version, IntVer = 1.1, "1.1"
 local function AutoUpdate()
 	DownloadFile("https://raw.githubusercontent.com/Ark223/GoS-Scripts/master/PremiumPrediction.version", COMMON_PATH .. "PremiumPrediction.version")
 	if tonumber(ReadFile(COMMON_PATH .. "PremiumPrediction.version")) > Version then
@@ -312,7 +312,7 @@ local PremiumPred = Class()
 
 function PremiumPred:__init()
 	self.Loaded, self.Pi2 = false, 1.57079632679
-	self.Enemies, self.DashCBs, self.GainCBs, self.LoseCBs, self.PsCBs, self.WpCBs = {}, {}, {}, {}, {}, {}
+	self.DashCBs, self.GainCBs, self.LoseCBs, self.PsCBs, self.WpCBs = {}, {}, {}, {}, {}
 	self.PPMenu = MenuElement({type = MENU, id = "PremiumPrediction", name = "Premium Prediction v"..IntVer})
 	self.PPMenu:MenuElement({id = "Debug", name = "Debug Settings", type = MENU})
 	self.PPMenu.Debug:MenuElement({id = "Enable", name = "Enable Debug", value = false})
@@ -328,16 +328,8 @@ function PremiumPred:__init()
 	self.PPMenu:MenuElement({id = "Latency", name = "Latency", value = 50, min = 5, max = 200, step = 5})
 	Callback.Add("Tick", function() self:Tick() end)
 	Callback.Add("Draw", function() self:Draw() end)
-	self:InitUnits()
-	for i, unit in ipairs(self.Enemies) do self:InitCustomData(unit) end
+	for i, unit in ipairs(self:GetEnemyHeroes()) do self:InitCustomData(unit) end
 	self.Loaded = true
-end
-
-function PremiumPred:InitUnits()
-	for i = 1, GameHeroCount() do
-		local unit = GameHero(i)
-		if unit and unit.team ~= myHero.team then TableInsert(self.Enemies, unit) end
-	end
 end
 
 function PremiumPred:InitCustomData(unit)
@@ -444,9 +436,8 @@ end
 function PremiumPred:GetPossibleUnits(source, unit, spellData)
 	local result = {}
 	local sourcePos = IsPoint(source) and self:To2D(source) or self:To2D(source.pos)
-	for i = 1, #self.Enemies do
-		local enemy = self.Enemies[i]
-		if enemy.valid and not enemy.dead and enemy.networkID ~= unit.networkID then
+	for i, enemy in ipairs(self:GetEnemyHeroes()) do
+		if enemy.valid and enemy.visible and not enemy.dead and enemy.networkID ~= unit.networkID then
 			if self:Distance(sourcePos, self:To2D(enemy.pos)) <=
 				(enemy.boundingRadius or 65) + spellData.range + spellData.radius then
 					local pred = self:GetPrediction(source, enemy, spellData)
@@ -520,7 +511,7 @@ function PremiumPred:IsColliding(source, position, spellData, flags, exclude)
 			for i = 1, GameMinionCount() do
 				local minion = GameMinion(i)
 				if minion and minion.valid and minion.visible and
-					minion.team ~= myHero.team and minion.health > 0 and minion.maxHealth > 5 then
+					minion.team ~= myHero.team and not minion.dead and minion.maxHealth > 5 then
 					if exclude and minion.networkID ~= exclude.networkID or not exclude then
 						local predPos = self:GetFastPrediction(source, minion, spellData)
 						if predPos then
@@ -534,9 +525,8 @@ function PremiumPred:IsColliding(source, position, spellData, flags, exclude)
 				end
 			end
 		elseif flag == "hero" then
-			for i = 1, #self.Enemies do
-				local hero = self.Enemies[i]
-				if hero and hero.valid and hero.visible and hero.health > 0 then
+			for i, hero in ipairs(self:GetEnemyHeroes()) do
+				if hero.valid and hero.visible and not hero.dead then
 					if exclude and hero.networkID ~= exclude.networkID or not exclude then
 						local predPos = self:GetFastPrediction(source, hero, spellData)
 						if predPos then
@@ -605,6 +595,17 @@ function PremiumPred:CalcAverage(samples)
 	local result = 0
 	for i, val in ipairs(samples) do result = result + val end
 	return result / #samples
+end
+
+function PremiumPred:GetEnemyHeroes()
+	local enemies = {}
+	for i = 1, GameHeroCount() do
+		local unit = GameHero(i)
+		if unit and unit.isEnemy then
+			TableInsert(enemies, unit)
+		end
+	end
+	return enemies
 end
 
 function PremiumPred:GetImmobileDuration(unit)
@@ -679,11 +680,11 @@ end
 --]]
 
 function PremiumPred:Tick()
-	for i = 1, #self.Enemies do
-		local unit = self.Enemies[i]; local nid = unit.networkID
+	for i, unit in ipairs(self:GetEnemyHeroes()) do
+		local nid = unit.networkID
 		if CustomData[nid] == nil then self:InitCustomData(unit) end
 		local data = CustomData[nid]
-		if unit.valid and not unit.dead and unit.visible then
+		if unit.valid and unit.visible and not unit.dead then
 			-- Dash callback
 			local dashData = myHero.pathing
 			if not dashData.isDashing then
@@ -742,8 +743,7 @@ end
 
 function PremiumPred:Draw()
 	if not self.PPMenu.Debug.Enable:Value() then return end
-	for i = 1, #self.Enemies do
-		local unit = self.Enemies[i]
+	for i, unit in ipairs(self:GetEnemyHeroes()) do
 		if unit.valid and unit.visible and not unit.dead then
 			local spellData = {
 				speed = self.PPMenu.Debug.Huge:Value() and MathHuge or self.PPMenu.Debug.Speed:Value(),
@@ -904,7 +904,7 @@ function PremiumPred:PredictUnitPosition(source, unit, spellData)
 		output.CastPos, output.PredPos = unitPos, unitPos
 	else
 		if #waypoints == 0 then waypoints = self:GetWaypoints(unit) end
-		local threshold = MathMax(0, spellData.radius / moveSpeed)
+		local threshold = MathMax(0, (spellData.radius - 1) / moveSpeed)
 		local delay = (spellData.delay + self.PPMenu.Latency:Value() / 2000 + 0.07)
 		if spellData.speed == MathHuge then
 			output.PredPos = self:GetPositionAfter(waypoints, moveSpeed, delay)
