@@ -31,7 +31,8 @@ local TableInsert, TableRemove, TableSort = table.insert, table.remove, table.so
 require "2DGeometry"
 require "MapPositionGOS"
 
-local CCBuffs, CustomData = {5, 8, 11, 18, 21, 22, 24, 28, 29}, {}
+local CCBuffs, CustomData = {[5] = true, [8] = true, [11] = true, [18] = true,
+	[21] = true, [22] = true, [24] = true, [28] = true, [29] = true}, {}
 
 local DashWindups = {
 	["AkaliE"] = 0.25,
@@ -616,20 +617,16 @@ function PremiumPred:GetImmobileDuration(unit)
 	end
 	for i = 0, unit.buffCount do
 		local buff = unit:GetBuff(i)
-		if buff then
-			for i = 1, #CCBuffs do
-				if buff.type == CCBuffs[i] and buff.duration > 0 and buff.duration <= 5 then
-					return buff.duration
-				end
-			end
+		if buff and buff.count > 0 and buff.duration > 0 and
+			buff.duration <= 5 and CCBuffs[buff.type] then return buff.duration
 		end
 	end
 	return 0
 end
 
 function PremiumPred:GetMovementSpeed(unit)
-	return unit.valid and unit.pathing.isDashing and
-		unit.pathing.dashSpeed or (unit.ms ~= nil and unit.ms or 315)
+	return unit.valid and (unit.pathing.isDashing and
+		unit.pathing.dashSpeed or unit.ms) or 315
 end
 
 function PremiumPred:IsDashing(unit)
