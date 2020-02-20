@@ -1760,7 +1760,7 @@ function JEvade:Tick()
 	if myHero.dead then return end
 	for i = 1, #self.Enemies do
 		local unit, spell = self.Enemies[i].unit, self.Enemies[i].spell
-		if unit and not unit.dead then
+		if unit and unit.valid and not unit.dead then
 			local active = unit.activeSpell
 			if active and active.valid and spell ~= active.name .. active.endTime and active.isChanneling then
 				self.Enemies[i].spell = active.name .. active.endTime
@@ -1779,8 +1779,7 @@ function JEvade:Tick()
 					if unit.handle == data.owner then
 						local id = tonumber(mis.networkID)
 						if self.MissileID < id then
-							self.MissileID = id
-							self:OnCreateMissile(unit, data)
+							self.MissileID = id; self:OnCreateMissile(unit, data)
 							for i = 1, #self.OnCreateMisCBs do
 								self.OnCreateMisCBs[i](unit, data) end break
 						end
