@@ -12,6 +12,9 @@
 
 	Changelog:
 
+	v1.1.3
+	+ Fixed API callbacks
+
 	v1.1.2
 	+ Improved hit prediction for linear skillshots
 	+ Removed 'Evade Mode' menu option and replaced 'Safety Check Sensitivity' with 'Average Game Ping'
@@ -73,7 +76,7 @@ local function ReadFile(file)
 	txt:close(); return result
 end
 
-local Version, IntVer = 1.12, "1.1.2"
+local Version, IntVer = 1.13, "1.1.3"
 local function AutoUpdate()
 	DownloadFile("https://raw.githubusercontent.com/Ark223/GoS-Scripts/master/JustEvade.version", SCRIPT_PATH .. "JustEvade.version")
 	if tonumber(ReadFile(SCRIPT_PATH .. "JustEvade.version")) > Version then
@@ -2026,9 +2029,9 @@ _G.JustEvade = {
 	Evading = function() return JEvade.Evading end,
 	IsDangerous = function(self, pos) return JEvade:IsDangerous(JEvade:To2D(pos)) end,
 	SafePos = function(self) return JEvade:SafePosition() end,
-	OnImpossibleDodge = function(func) JEvade:ImpossibleDodge(func) end,
-	OnCreateMissile = function(func) JEvade:CreateMissile(func) end,
-	OnProcessSpell = function(func) JEvade:ProcessSpell(func) end
+	OnImpossibleDodge = function(self, func) JEvade:ImpossibleDodge(func) end,
+	OnCreateMissile = function(self, func) JEvade:CreateMissile(func) end,
+	OnProcessSpell = function(self, func) JEvade:ProcessSpell(func) end
 }
 
 AutoUpdate()
