@@ -694,7 +694,7 @@ function PremiumPred:Tick()
 			-- Process spell
 			local activeData = unit.activeSpell
 			if activeData and activeData.valid and data.spell ~=
-				activeData.name .. activeData.endTime and activeData.isChanneling then
+				activeData.name .. activeData.endTime then
 				data.spell = activeData.name .. activeData.endTime
 				for i = 1, #self.PsCBs do self.PsCBs[i](unit, activeData) end
 				if DashWindups[activeData.name] then
