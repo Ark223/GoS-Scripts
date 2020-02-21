@@ -1914,8 +1914,18 @@ function JEvade:Avoid(spell, dodgePos, data)
 		elseif data.type == 5 and spell.cc then
 			_G.Control.CastSpell(data.slot2, myHero.pos); return 2
 		elseif data.type == 6 and spell.windwall then
-			local wallPos = Point2D(self.MyHeroPos):Extended(spell.position, 100)
-			_G.Control.CastSpell(data.slot2, self:To3D(wallPos)); return 2
+			local wallPos, mPos = Point2D(self.MyHeroPos):Extended(spell.position, 100), mousePos
+			if _G.SDK then _G.SDK.Orbwalker:SetAttack(false);
+				_G.SDK.Orbwalker:SetMovement(false) end
+			DelayAction(function()
+				ControlSetCursorPos(Geometry:To3D(wallPos))
+				ControlKeyDown(data.slot2); ControlKeyUp(data.slot2)
+				DelayAction(function()
+					ControlSetCursorPos(mPos)
+					if _G.SDK then _G.SDK.Orbwalker:SetAttack(true);
+						_G.SDK.Orbwalker:SetMovement(true) end
+				end, 0.01)
+			end, 0.01); return 2
 		elseif data.type == 7 and spell.cc then
 			_G.Control.CastSpell(data.slot2, self:To3D(spell.position)); return 2
 		end
