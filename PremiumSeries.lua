@@ -11,6 +11,14 @@
 
 	Changelog:
 
+	v1.0.7
+	+ Added Yasuo (ToDo: KS with E and EQ Flash trick)
+	+ Added custom windwall spell list
+	+ Fixed core bug with summoner level
+	  (returned wrong value at level 1)
+	+ Cassiopeia:
+	 - Fixed AA handler for all modes
+
 	v1.0.6
 	+ Xerath:
 	 - Improved Q cast
@@ -43,20 +51,22 @@
 
 --]]
 
-local GlobalVersion = 1.06
+local GlobalVersion = 1.07
 
 local Champions = {
 	["Cassiopeia"] = function() return Cassiopeia:__init() end,
 	["Vayne"] = function() return Vayne:__init() end,
 	["Viktor"] = function() return Viktor:__init() end,
-	["Xerath"] = function() return Xerath:__init() end
+	["Xerath"] = function() return Xerath:__init() end,
+	["Yasuo"] = function() return Yasuo:__init() end
 }
 
 local Versions = {
-	["Cassiopeia"] = "1.0.3",
+	["Cassiopeia"] = "1.0.4",
 	["Vayne"] = "1.0",
 	["Viktor"] = "1.0",
-	["Xerath"] = "1.0.4"
+	["Xerath"] = "1.0.4",
+	["Yasuo"] = "1.0"
 }
 
 -- Init
@@ -65,7 +75,6 @@ local MathAbs, MathAtan, MathAtan2, MathAcos, MathCeil, MathCos, MathDeg, MathFl
 local ControlIsKeyDown, ControlKeyDown, ControlKeyUp, ControlSetCursorPos, DrawCircle, DrawLine, GameCanUseSpell, GameLatency, GameTimer, GameHeroCount, GameHero, GameMinionCount, GameMinion, GameTurretCount, GameTurret = Control.IsKeyDown, Control.KeyDown, Control.KeyUp, Control.SetCursorPos, Draw.Circle, Draw.Line, Game.CanUseSpell, Game.Latency, Game.Timer, Game.HeroCount, Game.Hero, Game.MinionCount, Game.Minion, Game.TurretCount, Game.Turret
 local TableInsert, TableRemove, TableSort = table.insert, table.remove, table.sort
 local Icons, Png = "https://raw.githubusercontent.com/Ark223/LoL-Icons/master/", ".png"
-local Allies, Enemies = {}, {}
 
 local function DownloadFile(site, file)
 	DownloadFileAsync(site, file, function() end)
@@ -95,17 +104,550 @@ function OnLoad()
 		return
 	end
 	require "PremiumPrediction"
-	for i = 1, Game.HeroCount() do
-		local unit = Game.Hero(i)
-		if unit and not unit.isMe then
-			TableInsert(unit.isEnemy and Enemies or Allies, unit)
-		end
-	end
 	if Champions[myHero.charName] ~= nil then
 		Champions[myHero.charName]()
 	end
 	AutoUpdate()
 end
+
+local WindwallBlockSpells = {
+	["Aatrox"] = {
+		["AatroxW"] = {name = "AatroxW", displayName = "Infernal Chains", slot = "W", type = "linear",
+			speed = 1800, range = 825, delay = 0.25, radius = 80, cc = true, collision = true, extend = true},
+	},
+	["Ahri"] = {
+		["AhriOrbofDeception"] = {name = "AhriQ", displayName = "Orb of Deception", slot = "Q", type = "linear",
+			speed = 2500, range = 880, delay = 0.25, radius = 100, cc = false, collision = false, extend = true},
+		["AhriSeduce"] = {name = "AhriE", displayName = "Seduce", slot = "E", type = "linear",
+			speed = 1500, range = 975, delay = 0.25, radius = 60, cc = true, collision = true, extend = true},
+	},
+	["Akali"] = {
+		["AkaliQ"] = {name = "AkaliQ", displayName = "Five Point Strike", slot = "Q", type = "conic",
+			speed = 3200, range = 550, delay = 0.25, radius = 60, angle = 45, cc = false, collision = false, extend = true},
+		["AkaliE"] = {name = "AkaliE", displayName = "Shuriken Flip", slot = "E", type = "linear",
+			speed = 1800, range = 825, delay = 0.25, radius = 70, cc = false, collision = true, extend = true},
+	},
+	["Amumu"] = {
+		["BandageToss"] = {name = "AmumuQ", displayName = "Bandage Toss", slot = "Q", type = "linear",
+			speed = 2000, range = 1100, delay = 0.25, radius = 80, cc = true, collision = true, extend = true},
+	},
+	["Anivia"] = {
+		["FlashFrostSpell"] = {name = "AniviaQ", displayName = "Flash Frost", slot = "Q", type = "linear",
+			speed = 850, range = 1100, delay = 0.25, radius = 110, cc = true, collision = false, extend = true},
+		["Frostbite"] = {name = "AniviaE", displayName = "Frostbite", slot = "E", type = "targeted", cc = false},
+	},
+	["Annie"] = {
+		["AnnieQ"] = {name = "AnnieQ", displayName = "Disintegrate", slot = "Q", type = "targeted", cc = false},
+	},
+	["Aphelios"] = {
+		["ApheliosCalibrumQ"] = {name = "ApheliosQ1", displayName = "Moonshot", slot = "Q", type = "linear",
+			speed = 1850, range = 1450, delay = 0.35, radius = 60, cc = false, collision = true, extend = true},
+		["ApheliosInfernumQ"] = {name = "ApheliosQ2", displayName = "Duskwave", slot = "Q", type = "conic",
+			speed = 1500, range = 850, delay = 0.25, radius = 65, angle = 45, cc = false, collision = false, extend = true},
+		["ApheliosR"] = {name = "ApheliosR", displayName = "Moonlight Vigil", slot = "R", type = "linear",
+			speed = 2050, range = 1600, delay = 0.5, radius = 125, cc = false, collision = false, extend = true},
+	},
+	["Ashe"] = {
+		["Volley"] = {name = "AsheW", displayName = "Volley", slot = "W", type = "conic",
+			speed = 2000, range = 1200, delay = 0.25, radius = 20, angle = 40, cc = true, collision = true, extend = true},
+		["EnchantedCrystalArrow"] = {name = "AsheR", displayName = "Enchanted Crystal Arrow", slot = "R", type = "linear",
+			speed = 1600, range = 12500, delay = 0.25, radius = 130, cc = true, collision = false, extend = true},
+	},
+	["AurelionSol"] = {
+		["AurelionSolQ"] = {name = "AurelionSolQ", displayName = "Starsurge", slot = "Q", type = "linear",
+			speed = 850, range = 1075, delay = 0, radius = 110, cc = true, collision = false, extend = true},
+	},
+	["Bard"] = {
+		["BardQ"] = {name = "BardQ", displayName = "Cosmic Binding", slot = "Q", type = "linear",
+			speed = 1500, range = 950, delay = 0.25, radius = 60, cc = true, collision = true, extend = true},
+	},
+	["Blitzcrank"] = {
+		["RocketGrab"] = {name = "BlitzcrankQ", displayName = "Rocket Grab", slot = "Q", type = "linear",
+			speed = 1800, range = 1150, delay = 0.25, radius = 70, cc = true, collision = true, extend = true},
+	},
+	["Brand"] = {
+		["BrandQ"] = {name = "BrandQ", displayName = "Sear", slot = "Q", type = "linear",
+			speed = 1600, range = 1050, delay = 0.25, radius = 60, cc = false, collision = true, extend = true},
+		["BrandR"] = {name = "BrandR", displayName = "Pyroclasm", slot = "R", type = "targeted", cc = false},
+	},
+	["Braum"] = {
+		["BraumQ"] = {name = "BraumQ", displayName = "Winter's Bite", slot = "Q", type = "linear",
+			speed = 1700, range = 1000, delay = 0.25, radius = 70, cc = true, collision = true, extend = true},
+		["BraumR"] = {name = "BraumR", displayName = "Glacial Fissure", slot = "R", type = "linear",
+			speed = 1400, range = 1250, delay = 0.5, radius = 115, cc = true, collision = false, extend = true},
+	},
+	["Caitlyn"] = {
+		["CaitlynPiltoverPeacemaker"] = {name = "CaitlynQ", displayName = "Piltover Peacemaker", slot = "Q", type = "linear",
+			speed = 2200, range = 1250, delay = 0.625, radius = 90, cc = false, collision = false, extend = true},
+		["CaitlynEntrapment"] = {name = "CaitlynE", displayName = "Entrapment", slot = "E", type = "linear",
+			speed = 1600, range = 750, delay = 0.15, radius = 70, cc = true, collision = true, extend = true},
+		["CaitlynAceintheHole"] = {name = "CaitlynR", displayName = "Ace in the Hole", slot = "R", type = "targeted", cc = false},
+	},
+	["Cassiopeia"] = {
+		["CassiopeiaW"] = {name = "CassiopeiaW", displayName = "Miasma", slot = "W", type = "circular",
+			speed = 2500, range = 800, delay = 0.25, radius = 160, cc = true, collision = false, extend = false},
+		["CassiopeiaE"] = {name = "CassiopeiaE", displayName = "Twin Fang", slot = "E", type = "targeted", cc = false},
+	},
+	["Corki"] = {
+		["PhosphorusBomb"] = {name = "CorkiQ", displayName = "Phosphorus Bomb", slot = "Q", type = "circular",
+			speed = 1000, range = 825, delay = 0.25, radius = 250, cc = false, collision = false, extend = false},
+		["MissileBarrageMissile"] = {name = "CorkiR1", displayName = "Missile Barrage [Standard]", slot = "R", type = "linear",
+			speed = 2000, range = 1300, delay = 0.175, radius = 40, cc = false, collision = true, extend = true},
+		["MissileBarrageMissile2"] = {name = "CorkiR1", displayName = "Missile Barrage [Big]", slot = "R", type = "linear",
+			speed = 2000, range = 1500, delay = 0.175, radius = 40, cc = false, collision = true, extend = true},
+	},
+	["Diana"] = {
+		["DianaQ"] = {name = "DianaQ", displayName = "Crescent Strike", slot = "Q", type = "circular",
+			speed = 1900, range = 900, delay = 0.25, radius = 185, cc = false, collision = true, extend = false},
+	},
+	["Draven"] = {
+		["DravenDoubleShot"] = {name = "DravenE", displayName = "Double Shot", slot = "E", type = "linear",
+			speed = 1600, range = 1050, delay = 0.25, radius = 130, cc = true, collision = false, extend = true},
+		["DravenRCast"] = {name = "DravenR", displayName = "Whirling Death", slot = "R", type = "linear",
+			speed = 2000, range = 12500, delay = 0.25, radius = 160, cc = false, collision = false, extend = true},
+	},
+	["DrMundo"] = {
+		["InfectedCleaverMissile"] = {name = "DrMundoQ", displayName = "Infected Cleaver", slot = "Q", type = "linear",
+			speed = 2000, range = 975, delay = 0.25, radius = 60, cc = true, collision = true, extend = true},
+	},
+	["Ekko"] = {
+		["EkkoQ"] = {name = "EkkoQ", displayName = "Timewinder", slot = "Q", type = "linear",
+			speed = 1650, range = 1175, delay = 0.25, radius = 60, cc = true, collision = false, extend = true},
+	},
+	["Elise"] = {
+		["EliseHumanQ"] = {name = "EliseQ", displayName = "Neurotoxin", slot = "Q", type = "targeted", cc = false},
+		["EliseHumanE"] = {name = "EliseE", displayName = "Cocoon", slot = "E", type = "linear",
+			speed = 1600, range = 1075, delay = 0.25, radius = 55, cc = true, collision = true, extend = true},
+	},
+	["Evelynn"] = {
+		["EvelynnQ"] = {name = "EvelynnQ", displayName = "Hate Spike", slot = "Q", type = "linear",
+			speed = 2400, range = 800, delay = 0.25, radius = 60, cc = false, collision = true, extend = true},
+	},
+	["Ezreal"] = {
+		["EzrealQ"] = {name = "EzrealQ", displayName = "Mystic Shot", slot = "Q", type = "linear",
+			speed = 2000, range = 1150, delay = 0.25, radius = 60, cc = false, collision = true, extend = true},
+		["EzrealW"] = {name = "EzrealW", displayName = "Essence Flux", slot = "W", type = "linear",
+			speed = 2000, range = 1150, delay = 0.25, radius = 60, cc = false, collision = false, extend = true},
+		["EzrealR"] = {name = "EzrealR", displayName = "Trueshot Barrage", slot = "R", type = "linear",
+			speed = 2000, range = 12500, delay = 1, radius = 160, cc = false, collision = false, extend = true},
+	},
+	["Fiddlesticks"] = {
+		["FiddlesticksDarkWind"] = {name = "FiddlesticksE", displayName = "Dark Wind", slot = "E", type = "targeted", cc = true},
+	},
+	["Fiora"] = {
+		["FioraW"] = {name = "FioraW", displayName = "Riposte", slot = "W", type = "linear",
+			speed = 3200, range = 750, delay = 0.75, radius = 70, cc = true, collision = false, extend = true},
+	},
+	["Fizz"] = {
+		["FizzR"] = {name = "FizzR", displayName = "Chum the Waters", slot = "R", type = "linear",
+			speed = 1300, range = 1300, delay = 0.25, radius = 150, cc = true, collision = false, extend = true},
+	},
+	["Galio"] = {
+		["GalioQ"] = {name = "GalioQ", displayName = "Winds of War", slot = "Q", type = "circular",
+			speed = 1150, range = 825, delay = 0.25, radius = 235, cc = false, collision = false, extend = false},
+	},
+	["Gangplank"] = {
+		["GangplankQProceed"] = {name = "GangplankQ", displayName = "Parrrley", slot = "Q", type = "targeted", cc = false},
+	},
+	["Gnar"] = {
+		["GnarQMissile"] = {name = "GnarQMini", displayName = "Boomerang Throw", slot = "Q", type = "linear",
+			speed = 2500, range = 1125, delay = 0.25, radius = 55, cc = true, collision = false, extend = true},
+		["GnarBigQMissile"] = {name = "GnarQMega", displayName = "Boulder Toss", slot = "Q", type = "linear",
+			speed = 2100, range = 1125, delay = 0.5, radius = 90, cc = true, collision = true, extend = true},
+	},
+	["Gragas"] = {
+		["GragasQ"] = {name = "GragasQ", displayName = "Barrel Roll", slot = "Q", type = "circular",
+			speed = 1000, range = 850, delay = 0.25, radius = 275, cc = true, collision = false, extend = false},
+		["GragasR"] = {name = "GragasR", displayName = "Explosive Cask", slot = "R", type = "circular",
+			speed = 1800, range = 1000, delay = 0.25, radius = 400, cc = true, collision = false, extend = false},
+	},
+	["Graves"] = {
+		["GravesQLineSpell"] = {name = "GravesQ", displayName = "End of the Line", slot = "Q", type = "linear",
+			speed = 3000, range = 800, delay = 0.25, radius = 20, cc = false, collision = false, extend = true},
+		["GravesSmokeGrenade"] = {name = "GravesW", displayName = "Smoke Grenade", slot = "W", type = "circular",
+			speed = 1500, range = 950, delay = 0.15, radius = 250, cc = true, collision = false, extend = false},
+		["GravesChargeShot"] = {name = "GravesR", displayName = "Charge Shot", slot = "R", type = "linear",
+			speed = 2100, range = 1000, delay = 0.25, radius = 100, cc = false, collision = false, extend = true},
+	},
+	["Heimerdinger"] = {
+		["HeimerdingerW"] = {name = "HeimerdingerW", displayName = "Hextech Micro-Rockets", slot = "W", type = "linear",
+			speed = 2050, range = 1325, delay = 0.25, radius = 100, cc = false, collision = false, extend = true},
+		["HeimerdingerE"] = {name = "HeimerdingerE1", displayName = "CH-2 Electron Storm Grenade", slot = _E, type = "circular",
+			speed = 1200, range = 970, delay = 0.25, radius = 250, cc = true, collision = false, extend = false},
+		["HeimerdingerEUlt"] = {name = "HeimerdingerE2", displayName = "CH-2 Electron Storm Grenade [Ult]", slot = _E, type = "circular",
+			speed = 1200, range = 970, delay = 0.25, radius = 250, cc = true, collision = false, extend = false},
+	},
+	["Illaoi"] = {
+		["IllaoiE"] = {name = "IllaoiE", displayName = "Test of Spirit", slot = "E", type = "linear",
+			speed = 1900, range = 900, delay = 0.25, radius = 50, cc = false, collision = true, extend = true},
+	},
+	["Irelia"] = {
+		["IreliaR"] = {name = "IreliaR", displayName = "Vanguard's Edge", slot = "R", type = "linear",
+			speed = 2000, range = 950, delay = 0.4, radius = 160, cc = true, collision = false, extend = true},
+	},
+	["Ivern"] = {
+		["IvernQ"] = {name = "IvernQ", displayName = "Rootcaller", slot = "Q", type = "linear",
+			speed = 1300, range = 1075, delay = 0.25, radius = 80, cc = true, collision = true, extend = true},
+	},
+	["Janna"] = {
+		["SowTheWind"] = {name = "JannaW", displayName = "Zephyr", slot = "W", type = "targeted", cc = true},
+	},
+	["Jayce"] = {
+		["JayceShockBlast"] = {name = "JayceQ", displayName = "Shock Blast [Standard]", slot = "Q", type = "linear",
+			speed = 1450, range = 1050, delay = 0.214, radius = 70, cc = false, collision = true, extend = true},
+	},
+	["Jhin"] = {
+		["JhinW"] = {name = "JhinW", displayName = "Deadly Flourish", slot = "W", type = "linear",
+			speed = 5000, range = 2550, delay = 0.75, radius = 40, cc = true, collision = false, extend = true},
+		["JhinRShot"] = {name = "JhinR", displayName = "Curtain Call", slot = "R", type = "linear",
+			speed = 5000, range = 3500, delay = 0.25, radius = 80, cc = true, collision = false, extend = true},
+	},
+	["Jinx"] = {
+		["JinxWMissile"] = {name = "JinxW", displayName = "Zap!", slot = "W", type = "linear",
+			speed = 3300, range = 1450, delay = 0.6, radius = 60, cc = true, collision = true, extend = true},
+		["JinxEHit"] = {name = "JinxE", displayName = "Flame Chompers!", slot = "E", type = "polygon",
+			speed = 1100, range = 900, delay = 1.5, radius = 120, cc = true, collision = false, extend = true},
+		["JinxR"] = {name = "JinxR", displayName = "Super Mega Death Rocket!", slot = "R", type = "linear",
+			speed = 1700, range = 12500, delay = 0.6, radius = 140, cc = false, collision = false, extend = true},
+	},
+	["Kaisa"] = {
+		["KaisaW"] = {name = "KaisaW", displayName = "Void Seeker", slot = "W", type = "linear",
+			speed = 1750, range = 3000, delay = 0.4, radius = 100, cc = false, collision = true, extend = true},
+	},
+	["Kalista"] = {
+		["KalistaMysticShot"] = {name = "KalistaQ", displayName = "Pierce", slot = "Q", type = "linear",
+			speed = 2400, range = 1150, delay = 0.25, radius = 40, cc = false, collision = true, extend = true},
+	},
+	["Karma"] = {
+		["KarmaQ"] = {name = "KarmaQ1", displayName = "Inner Flame [Standard]", slot = "Q", type = "linear",
+			speed = 1700, range = 950, delay = 0.25, radius = 60, cc = true, collision = true, extend = true},
+		["KarmaQMantra"] = {name = "KarmaQ2", displayName = "Inner Flame [Mantra]", slot = "Q", type = "linear",
+			speed = 1700, range = 950, delay = 0.25, radius = 80, cc = true, collision = true, extend = true},
+	},
+	["Kassadin"] = {
+		["NullLance"] = {name = "KassadinQ", displayName = "Null Sphere", slot = "Q", type = "targeted", cc = false},
+	},
+	["Katarina"] = {
+		["KatarinaQ"] = {name = "KatarinaQ", displayName = "Bouncing Blade", slot = "Q", type = "targeted", cc = false},
+	},
+	["Kayle"] = {
+		["KayleQ"] = {name = "KayleQ", displayName = "Radiant Blast", slot = "Q", type = "linear",
+			speed = 1600, range = 900, delay = 0.25, radius = 60, cc = true, collision = false, extend = true},
+	},
+	["Kennen"] = {
+		["KennenShurikenHurlMissile1"] = {name = "KennenQ", displayName = "Shuriken Hurl", slot = "Q", type = "linear",
+			speed = 1700, range = 1050, delay = 0.175, radius = 50, cc = false, collision = true, extend = true},
+	},
+	["Khazix"] = {
+		["KhazixW"] = {name = "KhazixW1", displayName = "Void Spike [Standard]", slot = "W", type = "linear",
+			speed = 1700, range = 1000, delay = 0.25, radius = 70, cc = false, collision = true, extend = true},
+		["KhazixWLong"] = {name = "KhazixW2", displayName = "Void Spike [Threeway]", slot = "W", type = "linear",
+			speed = 1700, range = 1000, delay = 0.25, radius = 70, angle = 23, cc = true, collision = true, extend = true},
+	},
+	["Kled"] = {
+		["KledQ"] = {name = "KledQMount", displayName = "Beartrap on a Rope", slot = "Q", type = "linear",
+			speed = 1600, range = 800, delay = 0.25, radius = 45, cc = true, collision = false, extend = true},
+		["KledRiderQ"] = {name = "KledQDismount", displayName = "Pocket Pistol", slot = "Q", type = "conic",
+			speed = 3000, range = 700, delay = 0.25, radius = 25, angle = 25, cc = false, collision = false, extend = true},
+	},
+	["KogMaw"] = {
+		["KogMawQ"] = {name = "KogMawQ", displayName = "Caustic Spittle", slot = "Q", type = "linear",
+			speed = 1650, range = 1175, delay = 0.25, radius = 70, cc = false, collision = true, extend = true},
+		["KogMawVoidOozeMissile"] = {name = "KogMawE", displayName = "Void Ooze", slot = "E", type = "linear",
+			speed = 1400, range = 1360, delay = 0.25, radius = 120, cc = true, collision = false, extend = true},
+	},
+	["Leblanc"] = {
+		["LeblancQ"] = {name = "LeblancQ", displayName = "Sigil of Malice [Standard]", slot = "Q", type = "targeted", cc = false},
+		["LeblancRQ"] = {name = "LeblancRQ", displayName = "Sigil of Malice [Ultimate]", slot = "Q", type = "targeted", cc = false},
+		["LeblancE"] = {name = "LeblancE", displayName = "Ethereal Chains [Standard]", slot = "E", type = "linear",
+			speed = 1750, range = 925, delay = 0.25, radius = 55, cc = true, collision = true, extend = true},
+		["LeblancRE"] = {name = "LeblancRE", displayName = "Ethereal Chains [Ultimate]", slot = "E", type = "linear",
+			speed = 1750, range = 925, delay = 0.25, radius = 55, cc = true, collision = true, extend = true},
+	},
+	["LeeSin"] = {
+		["BlindMonkQOne"] = {name = "LeeSinQ", displayName = "Sonic Wave", slot = "Q", type = "linear",
+			speed = 1800, range = 1100, delay = 0.25, radius = 60, cc = false, collision = true, extend = true},
+	},
+	["Leona"] = {
+		["LeonaZenithBlade"] = {name = "LeonaE", displayName = "Zenith Blade", slot = "E", type = "linear",
+			speed = 2000, range = 875, delay = 0.25, radius = 70, cc = true, collision = false, extend = true},
+	},
+	["Lissandra"] = {
+		["LissandraQMissile"] = {name = "LissandraQ", displayName = "Ice Shard", slot = "Q", type = "linear",
+			speed = 2200, range = 750, delay = 0.25, radius = 75, cc = true, collision = false, extend = true},
+		["LissandraEMissile"] = {name = "LissandraE", displayName = "Glacial Path", slot = "E", type = "linear",
+			speed = 850, range = 1025, delay = 0.25, radius = 125, cc = false, collision = false, extend = true},
+	},
+	["Lucian"] = {
+		["LucianW"] = {name = "LucianW", displayName = "Ardent Blaze", slot = "W", type = "linear",
+			speed = 1600, range = 900, delay = 0.25, radius = 80, cc = false, collision = true, extend = true},
+	},
+	["Lulu"] = {
+		["LuluQ"] = {name = "LuluQ", displayName = "Glitterlance", slot = "Q", type = "linear",
+			speed = 1450, range = 925, delay = 0.25, radius = 60, cc = true, collision = false, extend = true},
+		["LuluWTwo"] = {name = "LuluW", displayName = "Whimsy", slot = "W", type = "targeted", cc = true},
+	},
+	["Lux"] = {
+		["LuxLightBinding"] = {name = "LuxQ", displayName = "Light Binding", slot = "Q", type = "linear",
+			speed = 1200, range = 1175, delay = 0.25, radius = 70, cc = true, collision = false, extend = true},
+		["LuxLightStrikeKugel"] = {name = "LuxE", displayName = "Light Strike Kugel", slot = "E", type = "circular",
+			speed = 1200, range = 1100, delay = 0.25, radius = 300, cc = true, collision = true, extend = false},
+	},
+	["Malphite"] = {
+		["SeismicShard"] = {name = "MalphiteQ", displayName = "Seismic Shard", slot = "Q", type = "targeted", cc = true},
+	},
+	["Maokai"] = {
+		["MaokaiQ"] = {name = "MaokaiQ", displayName = "Bramble Smash", slot = "Q", type = "linear",
+			speed = 1600, range = 600, delay = 0.375, radius = 110, cc = true, collision = false, extend = true},
+	},
+	["MissFortune"] = {
+		["MissFortuneRicochetShot"] = {name = "MissFortuneQ", displayName = "Double Up", slot = "Q", type = "targeted", cc = false},
+		["MissFortuneBulletTime"] = {name = "MissFortuneR", displayName = "Bullet Time", slot = "R", type = "conic",
+			speed = 2000, range = 1400, delay = 0.25, radius = 100, angle = 34, cc = false, collision = false, extend = true},
+	},
+	["Mordekaiser"] = {
+		["MordekaiserE"] = {name = "MordekaiserE", displayName = "Death's Grasp", slot = "E", type = "linear",
+			speed = 3000, range = 900, delay = 0.25, radius = 140, cc = true, collision = false, extend = true},
+	},
+	["Morgana"] = {
+		["MorganaQ"] = {name = "MorganaQ", displayName = "Dark Binding", slot = "Q", type = "linear",
+			speed = 1200, range = 1250, delay = 0.25, radius = 70, cc = true, collision = true, extend = true},
+	},
+	["Nami"] = {
+		["NamiQ"] = {name = "NamiQ", displayName = "Aqua Prison", slot = "Q", type = "circular",
+			speed = MathHuge, range = 875, delay = 1, radius = 180, cc = true, collision = false, extend = false},
+		["NamiW"] = {name = "NamiW", displayName = "Ebb and Flow", slot = "W", type = "targeted", cc = false},
+		["NamiRMissile"] = {name = "NamiR", displayName = "Tidal Wave", slot = "R", type = "linear",
+			speed = 850, range = 2750, delay = 0.5, radius = 250, cc = true, collision = false, extend = true},
+	},
+	["Nautilus"] = {
+		["NautilusAnchorDragMissile"] = {name = "NautilusQ", displayName = "Dredge Line", slot = "Q", type = "linear",
+			speed = 2000, range = 925, delay = 0.25, radius = 90, cc = true, collision = true, extend = true},
+		["NautilusGrandLine"] = {name = "NautilusR", displayName = "Depth Charge", slot = "R", type = "targeted", cc = true},
+	},
+	["Neeko"] = {
+		["NeekoQ"] = {name = "NeekoQ", displayName = "Blooming Burst", slot = "Q", type = "circular",
+			speed = 1500, range = 800, delay = 0.25, radius = 200, cc = true, collision = false, extend = false},
+		["NeekoE"] = {name = "NeekoE", displayName = "Tangle-Barbs", slot = "E", type = "linear",
+			speed = 1300, range = 1000, delay = 0.25, radius = 70, cc = true, collision = false, extend = true},
+	},
+	["Nidalee"] = {
+		["JavelinToss"] = {name = "NidaleeQ", displayName = "Javelin Toss", slot = "Q", type = "linear",
+			speed = 1300, range = 1500, delay = 0.25, radius = 40, cc = false, collision = true, extend = true},
+	},
+	["Nocturne"] = {
+		["NocturneDuskbringer"] = {name = "NocturneQ", displayName = "Duskbringer", slot = "Q", type = "linear",
+			speed = 1600, range = 1200, delay = 0.25, radius = 60, cc = false, collision = false, extend = true},
+	},
+	["Olaf"] = {
+		["OlafAxeThrowCast"] = {name = "OlafQ", displayName = "Undertow", slot = "Q", type = "linear",
+			speed = 1600, range = 1000, delay = 0.25, radius = 90, cc = true, collision = false, extend = false},
+	},
+	["Ornn"] = {
+		["OrnnQ"] = {name = "OrnnQ", displayName = "Volcanic Rupture", slot = "Q", type = "linear",
+			speed = 1800, range = 800, delay = 0.3, radius = 65, cc = true, collision = false, extend = true},
+		["OrnnRCharge"] = {name = "OrnnR", displayName = "Call of the Forge God", slot = "R", type = "linear",
+			speed = 1650, range = 2500, delay = 0.5, radius = 200, cc = true, collision = false, extend = true},
+	},
+	["Pantheon"] = {
+		["PantheonQMissile"] = {name = "PantheonQ", displayName = "Comet Spear [Range]", slot = "Q", type = "linear",
+			speed = 2700, range = 1200, delay = 0.25, radius = 60, cc = false, collision = false, extend = true},
+	},
+	["Poppy"] = {
+		["PoppyRSpell"] = {name = "PoppyR", displayName = "Keeper's Verdict", slot = "R", type = "linear",
+			speed = 2000, range = 1200, delay = 0.33, radius = 100, cc = true, collision = false, extend = true},
+	},
+	["Pyke"] = {
+		["PykeQRange"] = {name = "PykeQ", displayName = "Bone Skewer [Range]", slot = "Q", type = "linear",
+			speed = 2000, range = 1100, delay = 0.2, radius = 70, cc = true, collision = true, extend = true},
+	},
+	["Qiyana"] = {
+		["QiyanaQ_Grass"] = {name = "QiyanaQGrass", displayName = "Edge of Ixtal [Grass]", slot = "Q", type = "linear",
+			speed = 1600, range = 925, delay = 0.25, radius = 70, cc = false, collision = false, extend = true},
+		["QiyanaQ_Rock"] = {name = "QiyanaQRock", displayName = "Edge of Ixtal [Rock]", slot = "Q", type = "linear",
+			speed = 1600, range = 925, delay = 0.25, radius = 70, cc = false, collision = false, extend = true},
+		["QiyanaQ_Water"] = {name = "QiyanaQWater", displayName = "Edge of Ixtal [Water]", slot = "Q", type = "linear",
+			speed = 1600, range = 925, delay = 0.25, radius = 70, cc = true, collision = false, extend = true},
+		["QiyanaR"] = {name = "QiyanaR", displayName = "Supreme Display of Talent", slot = "R", type = "linear",
+			speed = 2000, range = 950, delay = 0.25, radius = 190, cc = true, collision = false, extend = true},
+	},
+	["Quinn"] = {
+		["QuinnQ"] = {name = "QuinnQ", displayName = "Blinding Assault", slot = "Q", type = "linear",
+			speed = 1550, range = 1025, delay = 0.25, radius = 60, cc = false, collision = true, extend = true},
+	},
+	["Rakan"] = {
+		["RakanQ"] = {name = "RakanQ", displayName = "Gleaming Quill", slot = "Q", type = "linear",
+			speed = 1850, range = 850, delay = 0.25, radius = 65, cc = false, collision = true, extend = true},
+	},
+	["RekSai"] = {
+		["RekSaiQBurrowed"] = {name = "RekSaiQ", displayName = "Prey Seeker", slot = "Q", type = "linear",
+			speed = 1950, range = 1625, delay = 0.125, radius = 65, cc = false, collision = true, extend = true},
+	},
+	["Rengar"] = {
+		["RengarE"] = {name = "RengarE", displayName = "Bola Strike", slot = "E", type = "linear",
+			speed = 1500, range = 1000, delay = 0.25, radius = 70, cc = true, collision = true, extend = true},
+	},
+	["Riven"] = {
+		["RivenIzunaBlade"] = {name = "RivenR", displayName = "Wind Slash", slot = "R", type = "conic",
+			speed = 1600, range = 900, delay = 0.25, radius = 0, angle = 75, cc = false, collision = false, extend = true},
+	},
+	["Rumble"] = {
+		["RumbleGrenade"] = {name = "RumbleE", displayName = "Electro Harpoon", slot = "E", type = "linear",
+			speed = 2000, range = 850, delay = 0.25, radius = 60, cc = true, collision = true, extend = true},
+	},
+	["Ryze"] = {
+		["RyzeQ"] = {name = "RyzeQ", displayName = "Overload", slot = "Q", type = "linear",
+			speed = 1700, range = 1000, delay = 0.25, radius = 55, cc = false, collision = true, extend = true},
+		["RyzeE"] = {name = "RyzeE", displayName = "Spell Flux", slot = "E", type = "targeted", cc = false},
+	},
+	["Sejuani"] = {
+		["SejuaniR"] = {name = "SejuaniR", displayName = "Glacial Prison", slot = "R", type = "linear",
+			speed = 1600, range = 1300, delay = 0.25, radius = 120, cc = true, collision = false, extend = true},
+	},
+	["Senna"] = {
+		["SennaW"] = {name = "SennaW", displayName = "Last Embrace", slot = "W", type = "linear",
+			speed = 1150, range = 1300, delay = 0.25, radius = 60, cc = true, collision = true, extend = true},
+		["SennaR"] = {name = "SennaR", displayName = "Dawning Shadow", slot = "R", type = "linear",
+			speed = 20000, range = 12500, delay = 1, radius = 180, cc = false, collision = false, extend = true},
+	},
+	["Shaco"] = {
+		["TwoShivPoison"] = {name = "ShacoE", displayName = "Two-Shiv Poison", slot = "E", type = "targeted", cc = true},
+	},
+	["Shyvana"] = {
+		["ShyvanaFireball"] = {name = "ShyvanaE", displayName = "Flame Breath [Standard]", slot = "E", type = "linear",
+			speed = 1575, range = 925, delay = 0.25, radius = 60, cc = false, collision = false, extend = true},
+		["ShyvanaFireballDragon2"] = {name = "ShyvanaE", displayName = "Flame Breath [Dragon]", slot = "E", type = "linear",
+			speed = 1575, range = 975, delay = 0.333, radius = 60, cc = false, collision = false, extend = true},
+	},
+	["Sion"] = {
+		["SionE"] = {name = "SionE", displayName = "Roar of the Slayer", slot = "E", type = "linear",
+			speed = 1800, range = 800, delay = 0.25, radius = 80, cc = true, collision = false, extend = true},
+	},
+	["Sivir"] = {
+		["SivirQ"] = {name = "SivirQ", displayName = "Boomerang Blade", slot = "Q", type = "linear",
+			speed = 1350, range = 1250, delay = 0.25, radius = 90, cc = false, collision = false, extend = true},
+	},
+	["Skarner"] = {
+		["SkarnerFractureMissile"] = {name = "SkarnerE", displayName = "Fracture", slot = "E", type = "linear",
+			speed = 1500, range = 1000, delay = 0.25, radius = 70, cc = true, collision = false, extend = true},
+	},
+	["Sona"] = {
+		["SonaR"] = {name = "SonaR", displayName = "Crescendo", slot = "R", type = "linear",
+			speed = 2400, range = 1000, delay = 0.25, radius = 140, cc = true, collision = false, extend = true},
+	},
+	["Swain"] = {
+		["SwainQ"] = {name = "SwainQ", displayName = "Death's Hand", slot = "Q", type = "conic",
+			speed = 5000, range = 725, delay = 0.25, radius = 0, angle = 60, cc = false, collision = false, extend = true},
+		["SwainE"] = {name = "SwainE", displayName = "Nevermove", slot = "E", type = "linear",
+			speed = 1800, range = 850, delay = 0.25, radius = 85, cc = true, collision = false, extend = true},
+	},
+	["Sylas"] = {
+		["SylasE2"] = {name = "SylasE", displayName = "Abduct", slot = "E", type = "linear",
+			speed = 1600, range = 850, delay = 0.25, radius = 60, cc = true, collision = true, extend = true},
+	},
+	["Syndra"] = {
+		["SyndraE"] = {name = "SyndraE", displayName = "Scatter the Weak", slot = "E", type = "conic",
+			speed = 1600, range = 700, delay = 0.25, radius = 0, angle = 40, cc = true, collision = false, extend = true},
+		["SyndraR"] = {name = "SyndraR", displayName = "Unleashed Power", slot = "R", type = "targeted", cc = false},
+	},
+	["TahmKench"] = {
+		["TahmKenchQ"] = {name = "TahmKenchQ", displayName = "Tongue Lash", slot = "Q", type = "linear",
+			speed = 2800, range = 900, delay = 0.25, radius = 70, cc = true, collision = true, extend = true},
+	},
+	["Taliyah"] = {
+		["TaliyahQMis"] = {name = "TaliyahQ", displayName = "Threaded Volley", slot = "Q", type = "linear",
+			speed = 3600, range = 1000, radius = 100, cc = false, collision = true, extend = true},
+	},
+	["Talon"] = {
+		["TalonW"] = {name = "TalonW", displayName = "Rake", slot = "W", type = "conic",
+			speed = 2500, range = 650, delay = 0.25, radius = 75, angle = 26, cc = true, collision = false, extend = true},
+	},
+	["Teemo"] = {
+		["BlindingDart"] = {name = "TeemoQ", displayName = "Blinding Dart", slot = "Q", type = "targeted", cc = true},
+	},
+	["Tristana"] = {
+		["TristanaE"] = {name = "TristanaE", displayName = "Explosive Charge", slot = "E", type = "targeted", cc = false},
+		["TristanaR"] = {name = "TristanaR", displayName = "Buster Shot", slot = "R", type = "targeted", cc = true},
+	},
+	["TwistedFate"] = {
+		["WildCards"] = {name = "TwistedFateQ", displayName = "Wild Cards", slot = "Q", type = "linear",
+			speed = 1000, range = 1450, delay = 0.25, radius = 40, angle = 28, cc = false, collision = false, extend = true},
+		["BlueCardPreAttack"] = {name = "TwistedFateBlueCard", displayName = "Blue Card", slot = "AA", type = "targeted", cc = false},
+		["GoldCardPreAttack"] = {name = "TwistedFateGoldCard", displayName = "Gold Card", slot = "AA", type = "targeted", cc = true},
+		["RedCardPreAttack"] = {name = "TwistedFateRedCard", displayName = "Red Card", slot = "AA", type = "targeted", cc = true},
+	},
+	["Twitch"] = {
+		["TwitchVenomCask"] = {name = "TwitchW", displayName = "Venom Cask", slot = "W", type = "linear",
+			speed = 1400, range = 950, delay = 0.25, radius = 300, cc = true, collision = false, extend = false},
+	},
+	["Urgot"] = {
+		["UrgotQ"] = {name = "UrgotQ", displayName = "Corrosive Charge", slot = "Q", type = "circular",
+			speed = MathHuge, range = 800, delay = 0.6, radius = 180, cc = true, collision = false, extend = false},
+		["UrgotR"] = {name = "UrgotR", displayName = "Fear Beyond Death", slot = "R", type = "linear",
+			speed = 3200, range = 1600, delay = 0.5, radius = 80, cc = true, collision = false, extend = true},
+	},
+	["Varus"] = {
+		["VarusE"] = {name = "VarusE", displayName = "Hail of Arrows", slot = "E", type = "circular",
+			speed = 1500, range = 925, delay = 0.242, radius = 260, cc = true, collision = false, extend = true},
+		["VarusR"] = {name = "VarusR", displayName = "Chain of Corruption", slot = "R", type = "linear",
+			speed = 1950, range = 1200, delay = 0.25, radius = 120, cc = true, collision = false, extend = true},
+	},
+	["Vayne"] = {
+		["VayneCondemn"] = {name = "VayneE", displayName = "Condemn", slot = "E", type = "targeted", cc = true},
+	},
+	["Veigar"] = {
+		["VeigarBalefulStrike"] = {name = "VeigarQ", displayName = "Baleful Strike", slot = "Q", type = "linear",
+			speed = 2200, range = 900, delay = 0.25, radius = 70, cc = false, collision = false, extend = true},
+		["VeigarPrimordialBurst"] = {name = "VeigarR", displayName = "Primordial Burst", slot = "R", type = "targeted", cc = false},
+	},
+	["Velkoz"] = {
+		["VelkozQ"] = {name = "VelkozQ", displayName = "Plasma Fission", slot = "Q", type = "linear",
+			speed = 1300, range = 1050, delay = 0.25, radius = 50, cc = true, collision = true, extend = true},
+		["VelkozW"] = {name = "VelkozW", displayName = "Void Rift", slot = "W", type = "linear",
+			speed = 1700, range = 1050, delay = 0.25, radius = 87.5, cc = false, collision = false, extend = true},
+	},
+	["Viktor"] = {
+		["ViktorPowerTransfer"] = {name = "ViktorQ", displayName = "Siphon Power", slot = "Q", type = "targeted", cc = false},
+	},
+	["Xayah"] = {
+		["XayahQ"] = {name = "XayahQ", displayName = "Double Daggers", slot = "Q", type = "linear",
+			speed = 2075, range = 1100, delay = 0.5, radius = 45, cc = false, collision = false, extend = true},
+	},
+	["Xerath"] = {
+		["XerathMageSpear"] = {name = "XerathE", displayName = "Mage Spear", slot = "E", type = "linear",
+			speed = 1400, range = 1050, delay = 0.2, radius = 60, cc = true, collision = true, extend = true},
+	},
+	["Zac"] = {
+		["ZacQ"] = {name = "ZacQ", displayName = "Stretching Strikes", slot = "Q", type = "linear",
+			speed = 2800, range = 800, delay = 0.33, radius = 120, cc = true, collision = false, extend = true},
+	},
+	["Zed"] = {
+		["ZedQ"] = {name = "ZedQ", displayName = "Razor Shuriken", slot = "Q", type = "linear",
+			speed = 1700, range = 900, delay = 0.25, radius = 50, cc = false, collision = false, extend = true},
+	},
+	["Ziggs"] = {
+		["ZiggsQ"] = {name = "ZiggsQ", displayName = "Bouncing Bomb", slot = "Q", type = "circular",
+			speed = 1750, range = 850, delay = 0.25, radius = 150, cc = false, collision = true, extend = false},
+		["ZiggsW"] = {name = "ZiggsW", displayName = "Satchel Charge", slot = "W", type = "circular",
+			speed = 1750, range = 1000, delay = 0.25, radius = 240, cc = true, collision = false, extend = false},
+		["ZiggsE"] = {name = "ZiggsE", displayName = "Hexplosive Minefield", slot = "E", type = "circular",
+			speed = 1800, range = 900, delay = 0.25, radius = 250, cc = true, collision = false, extend = false},
+	},
+	["Zilean"] = {
+		["ZileanQ"] = {name = "ZileanQ", displayName = "Time Bomb", slot = "Q", type = "circular",
+			speed = MathHuge, range = 900, delay = 0.8, radius = 150, cc = true, collision = false, extend = false},
+	},
+	["Zoe"] = {
+		["ZoeQMissile"] = {name = "ZoeQ1", displayName = "Paddle Star", slot = "Q", type = "linear",
+			speed = 1200, range = 800, delay = 0.25, radius = 50, cc = false, collision = true, extend = true},
+		["ZoeE"] = {name = "ZoeE", displayName = "Sleepy Trouble Bubble", slot = "E", type = "linear",
+			speed = 1700, range = 800, delay = 0.3, radius = 50, cc = true, collision = true, extend = true},
+	},
+	["Zyra"] = {
+		["ZyraE"] = {name = "ZyraE", displayName = "Grasping Roots", slot = "E", type = "linear",
+			speed = 1150, range = 1100, delay = 0.25, radius = 70, cc = true, collision = false, extend = true},
+	}
+}
 
 local InterrupterSpells = {
 	["Caitlyn"] = {
@@ -391,6 +933,12 @@ function Geometry:AngleBetween(p1, p2)
 	return angle > 180 and 360 - angle or angle
 end
 
+function Geometry:CalcSkillshotPosition(data, time)
+	local t = MathMax(0, GameTimer() + time - data.startTime - data.delay)
+	t = MathMax(0, MathMin(self:Distance(data.startPos, data.endPos), data.speed * t))
+	return PPoint(data.startPos):Extended(data.endPos, t)
+end
+
 function Geometry:ClosestPointOnSegment(s1, s2, pt)
 	local ab = PPoint(s2 - s1)
 	local t = ((pt.x - s1.x) * ab.x + (pt.y - s1.y) * ab.y) / (ab.x * ab.x + ab.y * ab.y)
@@ -544,9 +1092,31 @@ function Manager:CopyTable(tab)
 	return copy
 end
 
+function Manager:GetAllyHeroes()
+	local allies = {}
+	for i = 1, GameHeroCount() do
+		local unit = GameHero(i)
+		if unit and unit.isAlly and not unit.isMe then
+			TableInsert(allies, unit)
+		end
+	end
+	return allies
+end
+
+function Manager:GetEnemyHeroes()
+	local enemies = {}
+	for i = 1, GameHeroCount() do
+		local unit = GameHero(i)
+		if unit and unit.isEnemy then
+			TableInsert(enemies, unit)
+		end
+	end
+	return enemies
+end
+
 function Manager:GetEnemiesAround(pos, range)
 	local units = {}
-	for i, enemy in ipairs(Enemies) do
+	for i, enemy in ipairs(self:GetEnemyHeroes()) do
 		if enemy and self:IsValid(enemy, range, pos) then
 			TableInsert(units, enemy)
 		end
@@ -596,6 +1166,10 @@ function Manager:GetPriority(unit)
 		priority == 4 and 2 or 2.5
 end
 
+function Manager:GetSummonerLevel()
+	return myHero.levelData.lvl > 18 and 1 or myHero.levelData.lvl
+end
+
 function Manager:IsReady(spell)
 	return GameCanUseSpell(spell) == READY
 end
@@ -604,8 +1178,8 @@ function Manager:IsUnderTurret(pos)
 	for i = 1, GameTurretCount() do
 		local turret = GameTurret(i)
 		if turret and turret.valid and turret.isEnemy and turret.health > 0 then
-			if Geometry:DistanceSquared(pos, Geometry:To2D(turret.pos)) <= 600625 then
-				return true
+			if Geometry:Distance(pos, Geometry:To2D(turret.pos)) <= 775 +
+				(myHero.boundingRadius or 65) * 2 then return true
 			end
 		end
 	end
@@ -684,7 +1258,7 @@ end
 
 function Cassiopeia:GetTarget(range)
 	local units = {}
-	for i, enemy in ipairs(Enemies) do
+	for i, enemy in ipairs(Manager:GetEnemyHeroes()) do
 		if Manager:IsValid(enemy, range, self.MyPos) then
 			TableInsert(units, enemy)
 		end
@@ -713,12 +1287,14 @@ end
 -- Events
 
 function Cassiopeia:OnPreAttack(args)
+	local mode = self.CassiopeiaMenu.Misc.ModeAA:Value()
 	local timer = GameTimer()
-	local disable = mode == 1 or
+	local disable = Manager:GetOrbwalkerMode() ~= "Clear"
+		and (mode == 1 or
 		(mode == 2 and Manager:IsReady(_E)) or
-		(mode == 3 and myHero.levelData.lvl >
+		(mode == 3 and Manager:GetSummonerLevel() >
 		self.CassiopeiaMenu.Misc.MinLvl:Value()) or
-		not self.AAHandler
+		not self.AAHandler)
 	if disable or timer - self.QueueTimer < self.WindUp
 		or timer - self.ShouldWait <= 0.45 then
 			args.Process = false; return
@@ -748,7 +1324,7 @@ function Cassiopeia:OnDraw()
 	end
 	if not self.MyPos then return end
 	if self.CassiopeiaMenu.Drawings.Track:Value() then
-		for i, enemy in ipairs(Enemies) do
+		for i, enemy in ipairs(Manager:GetEnemyHeroes()) do
 			if enemy and enemy.valid and enemy.visible then
 				local dist = Geometry:DistanceSquared(self.MyPos, Geometry:To2D(enemy.pos))
 				DrawLine(myHero.pos:To2D(), enemy.pos:To2D(), 2,
@@ -788,7 +1364,7 @@ function Cassiopeia:Clear()
 	end
 	if Manager:IsReady(_E) and self.CassiopeiaMenu.LaneClear.UseE:Value() and #minions > 0 then
 		local timer, ap = GameTimer(), myHero.ap
-		local rawDmg = 48 + myHero.levelData.lvl * 4 + (0.1 * ap)
+		local rawDmg = 48 + Manager:GetSummonerLevel() * 4 + (0.1 * ap)
 		local bonusDmg = 20 * (myHero:GetSpellData(_E).level or 1) - 10 + (0.6 * ap)
 		for i, minion in ipairs(minions) do
 			local arrival, duration = self:CalcFangArrivalTime(minion), self:PoisonDuration(minion)
@@ -902,7 +1478,7 @@ function Vayne:__init()
 	self.VayneMenu.Interrupter:MenuElement({id = "UseE", name = "E [Condemn]", value = true, leftIcon = Icons.."VayneE"..Png})
 	self.VayneMenu.Interrupter:MenuElement({id = "DashE", name = "E: Cast Against Dashes", value = true})
 	self.VayneMenu.Interrupter:MenuElement({id = "DangerE", name = "E: Min Danger Level", value = 2, min = 1, max = 3, step = 1})
-	for i, enemy in ipairs(Enemies) do
+	for i, enemy in ipairs(Manager:GetEnemyHeroes()) do
 		if enemy and InterrupterSpells[enemy.charName] then
 			for j, spell in pairs(InterrupterSpells[enemy.charName]) do
 				self.VayneMenu.Interrupter.Spells:MenuElement({id = j, name = enemy.charName .. " " .. spell.slot
@@ -988,7 +1564,7 @@ end
 
 function Vayne:GetTarget(range)
 	local units = {}
-	for i, enemy in ipairs(Enemies) do
+	for i, enemy in ipairs(Manager:GetEnemyHeroes()) do
 		if Manager:IsValid(enemy, range, self.MyPos) then
 			TableInsert(units, enemy)
 		end
@@ -1092,7 +1668,7 @@ function Vayne:OnDraw()
 	end
 	if not self.MyPos then return end
 	if self.VayneMenu.Drawings.Track:Value() then
-		for i, enemy in ipairs(Enemies) do
+		for i, enemy in ipairs(Manager:GetEnemyHeroes()) do
 			if enemy and enemy.valid and enemy.visible then
 				local dist = Geometry:DistanceSquared(self.MyPos, Geometry:To2D(enemy.pos))
 				DrawLine(myHero.pos:To2D(), enemy.pos:To2D(), 2,
@@ -1201,7 +1777,7 @@ end
 
 function Viktor:GetTarget(range)
 	local units = {}
-	for i, enemy in ipairs(Enemies) do
+	for i, enemy in ipairs(Manager:GetEnemyHeroes()) do
 		if Manager:IsValid(enemy, range, self.MyPos) then
 			TableInsert(units, enemy)
 		end
@@ -1268,7 +1844,7 @@ function Viktor:OnDraw()
 	end
 	if not self.MyPos then return end
 	if self.ViktorMenu.Drawings.Track:Value() then
-		for i, enemy in ipairs(Enemies) do
+		for i, enemy in ipairs(Manager:GetEnemyHeroes()) do
 			if enemy and enemy.valid and enemy.visible then
 				local dist = Geometry:DistanceSquared(self.MyPos, Geometry:To2D(enemy.pos))
 				DrawLine(myHero.pos:To2D(), enemy.pos:To2D(), 2,
@@ -1303,7 +1879,7 @@ function Viktor:Auto()
 		Manager:IsReady(self.Ignite[1]) or Manager:IsReady(_E) then return end
 	local units = Manager:GetEnemiesAround(self.MyPos, 600)
 	for i, enemy in ipairs(units) do
-		local dmg = 50 + 20 * (myHero.levelData.lvl or 1)
+		local dmg = 50 + 20 * Manager:GetSummonerLevel()
 		if dmg >= (enemy.health + enemy.hpRegen * 3) then
 			_G.Control.CastSpell(self.Ignite[2], enemy.pos); break
 		end
@@ -1382,7 +1958,7 @@ function Xerath:__init()
 	self.XerathMenu.Interrupter:MenuElement({id = "UseE", name = "E [Shocking Orb]", value = true, leftIcon = Icons.."XerathE"..Png})
 	self.XerathMenu.Interrupter:MenuElement({id = "DashE", name = "E: Cast Against Dashes", value = true})
 	self.XerathMenu.Interrupter:MenuElement({id = "DangerE", name = "E: Min Danger Level", value = 1, min = 1, max = 3, step = 1})
-	for i, enemy in ipairs(Enemies) do
+	for i, enemy in ipairs(Manager:GetEnemyHeroes()) do
 		if enemy and InterrupterSpells[enemy.charName] then
 			for j, spell in pairs(InterrupterSpells[enemy.charName]) do
 				self.XerathMenu.Interrupter.Spells:MenuElement({id = j, name = enemy.charName .. " " .. spell.slot
@@ -1417,7 +1993,7 @@ end
 
 function Xerath:GetTarget(range)
 	local units = {}
-	for i, enemy in ipairs(Enemies) do
+	for i, enemy in ipairs(Manager:GetEnemyHeroes()) do
 		if Manager:IsValid(enemy, range, self.MyPos) then
 			TableInsert(units, enemy)
 		end
@@ -1452,7 +2028,7 @@ end
 function Xerath:SearchKillable()
 	if GameTimer() - self.SearchTimer < 1 then return end
 	local lvl, killable = myHero:GetSpellData(_R).level or 1, {}
-	for i, enemy in ipairs(Enemies) do
+	for i, enemy in ipairs(Manager:GetEnemyHeroes()) do
 		if enemy and enemy.valid and enemy.visible then
 			local rawDmg = 40 * lvl + 160 + (0.43 * myHero.ap)
 			local dmg = (lvl + 2) * Manager:CalcMagicalDamage(myHero, enemy, rawDmg)
@@ -1539,7 +2115,7 @@ function Xerath:OnDraw()
 	end
 	if not self.MyPos then return end
 	if self.XerathMenu.Drawings.Track:Value() then
-		for i, enemy in ipairs(Enemies) do
+		for i, enemy in ipairs(Manager:GetEnemyHeroes()) do
 			if enemy and enemy.valid and enemy.visible then
 				local dist = Geometry:DistanceSquared(self.MyPos, Geometry:To2D(enemy.pos))
 				DrawLine(myHero.pos:To2D(), enemy.pos:To2D(), 2,
@@ -1660,6 +2236,403 @@ function Xerath:Action(mode, targetQ, targetWE)
 		if pred.CastPos and pred.HitChance >= self.XerathMenu.HitChance.HCE:Value() / 1000 then
 			self.QueueTimer = GameTimer()
 			_G.Control.CastSpell(HK_E, pred.CastPos)
+		end
+	end
+end
+
+--[[
+	┬ ┬┌─┐┌─┐┬ ┬┌─┐
+	└┬┘├─┤└─┐│ ││ │
+	 ┴ ┴ ┴└─┘└─┘└─┘
+--]]
+
+class "Yasuo"
+
+function Yasuo:__init()
+	self.Q = {speed = MathHuge, range = 475, delay = 0.339, radius = 45, collision = nil, type = "linear"}
+	self.Q3 = {speed = 1200, range = 1000, delay = 0.339, radius = 90, collision = nil, type = "linear"}
+	self.E = {range = 475}
+	self.R = {range = 1400}
+	self.KnockBuffs, self.DetectedSpells, self.QueueTimer = {[29] = true, [30] = true}, {}, 0
+	self.Ignite = myHero:GetSpellData(SUMMONER_1).name == "SummonerDot" and {SUMMONER_1, HK_SUMMONER_1} or
+		myHero:GetSpellData(SUMMONER_2).name == "SummonerDot" and {SUMMONER_2, HK_SUMMONER_2} or nil
+	self.YasuoMenu = MenuElement({type = MENU, id = "Yasuo", name = "Premium Yasuo v" .. Versions[myHero.charName]})
+	self.YasuoMenu:MenuElement({id = "Combo", name = "Combo", type = MENU})
+	self.YasuoMenu.Combo:MenuElement({id = "UseQ", name = "Q [Steel Tempest]", value = true, leftIcon = Icons.."YasuoQ1"..Png})
+	self.YasuoMenu.Combo:MenuElement({id = "UseQ3", name = "Q3 [Gathering Storm]", value = true, leftIcon = Icons.."YasuoQ3"..Png})
+	self.YasuoMenu.Combo:MenuElement({id = "UseE", name = "E [Sweeping Blade]", value = true, leftIcon = Icons.."YasuoE"..Png})
+	self.YasuoMenu.Combo:MenuElement({id = "UseR", name = "R [Last Breath]", value = true, leftIcon = Icons.."YasuoR"..Png})
+	self.YasuoMenu.Combo:MenuElement({id = "CheckE", name = "E: Check If Is Under Turret", value = true})
+	self.YasuoMenu.Combo:MenuElement({id = "KnockR", name = "R: Minimum Knocked Up", value = 1, min = 1, max = 5, step = 1})
+	self.YasuoMenu.Combo:MenuElement({id = "MaxHPR", name = "R: Maximum Health [%]", value = 45, min = 1, max = 100, step = 1})
+	self.YasuoMenu:MenuElement({id = "Harass", name = "Harass", type = MENU})
+	self.YasuoMenu.Harass:MenuElement({id = "UseQ", name = "Q [Steel Tempest]", value = true, leftIcon = Icons.."YasuoQ1"..Png})
+	self.YasuoMenu.Harass:MenuElement({id = "UseQ3", name = "Q3 [Gathering Storm]", value = true, leftIcon = Icons.."YasuoQ3"..Png})
+	self.YasuoMenu.Harass:MenuElement({id = "UseE", name = "E [Sweeping Blade]", value = true, leftIcon = Icons.."YasuoE"..Png})
+	self.YasuoMenu.Harass:MenuElement({id = "CheckE", name = "E: Check If Is Under Turret", value = true})
+	self.YasuoMenu:MenuElement({id = "LaneClear", name = "LaneClear", type = MENU})
+	self.YasuoMenu.LaneClear:MenuElement({id = "UseQ", name = "Q [Steel Tempest]", value = true, leftIcon = Icons.."YasuoQ1"..Png})
+	self.YasuoMenu.LaneClear:MenuElement({id = "UseQ3", name = "Q3 [Gathering Storm]", value = true, leftIcon = Icons.."YasuoQ3"..Png})
+	self.YasuoMenu.LaneClear:MenuElement({id = "UseE", name = "E [Sweeping Blade]", value = true, leftIcon = Icons.."YasuoE"..Png})
+	--self.YasuoMenu:MenuElement({id = "KillSteal", name = "KillSteal", type = MENU})
+	--self.YasuoMenu.KillSteal:MenuElement({id = "UseE", name = "E [Sweeping Blade]", value = true, leftIcon = Icons.."YasuoE"..Png})
+	DelayAction(function()
+		if not _G.JustEvade then
+			self.YasuoMenu:MenuElement({id = "WindWall", name = "WindWall", type = MENU})
+			self.YasuoMenu.WindWall:MenuElement({id = "Spells", name = "Detected Spells", type = MENU})
+			self.YasuoMenu.WindWall:MenuElement({id = "UseW", name = "W [Wind Wall]", value = true, leftIcon = Icons.."YasuoW"..Png})
+			self.YasuoMenu.WindWall:MenuElement({id = "CCW", name = "W: Cast Against CC Only", value = false})
+			for i, enemy in ipairs(Manager:GetEnemyHeroes()) do
+				if enemy and WindwallBlockSpells[enemy.charName] then
+					for j, spell in pairs(WindwallBlockSpells[enemy.charName]) do
+						self.YasuoMenu.WindWall.Spells:MenuElement({id = j, name = enemy.charName .. " " .. spell.slot
+							.. " [" .. spell.displayName .. "]", value = true, leftIcon = Icons .. spell.name .. Png})
+					end
+				end
+			end
+			_G.PremiumPrediction:OnProcessSpell(function(...) self:OnProcessSpell(...) end)
+		end
+		self.YasuoMenu:MenuElement({id = "Drawings", name = "Drawings", type = MENU})
+		self.YasuoMenu.Drawings:MenuElement({id = "DrawQ", name = "Q: Draw Range", value = true})
+		self.YasuoMenu.Drawings:MenuElement({id = "DrawE", name = "E: Draw Range", value = true})
+		self.YasuoMenu.Drawings:MenuElement({id = "DrawR", name = "R: Draw Range", value = true})
+		self.YasuoMenu.Drawings:MenuElement({id = "Track", name = "Track Enemies", value = true})
+		self.YasuoMenu:MenuElement({id = "HitChance", name = "HitChance", type = MENU})
+		self.YasuoMenu.HitChance:MenuElement({id = "HCQ", name = "Q: HitChance", value = 20, min = 0, max = 100, step = 5})
+		self.YasuoMenu:MenuElement({id = "Misc", name = "Misc", type = MENU})
+		if self.Ignite then
+			self.YasuoMenu.Misc:MenuElement({id = "UseIgnite", name = "Use Ignite", value = true, leftIcon = Icons.."Ignite"..Png})
+		end
+	end, 0.07)
+	Callback.Add("Tick", function() self:OnTick() end)
+	Callback.Add("Draw", function() self:OnDraw() end)
+	_G.SDK.Orbwalker:OnPreAttack(function(...) self:OnPreAttack(...) end)
+	_G.SDK.Orbwalker:OnPreMovement(function(...) self:OnPreMovement(...) end)
+end
+
+-- Methods
+
+function Yasuo:CalcDashPosition(target)
+	return PPoint(self.MyPos):Extended(Geometry:To2D(target.pos), 425)
+end
+
+function Yasuo:CalcSweepArrivalTime(unit)
+	return Geometry:Distance(self.MyPos, Geometry:To2D(unit.pos)) / (750 + 0.85 * (myHero.ms or 315))
+end
+
+function Yasuo:CustomCastSpell(spell, pos, windup)
+	local mPos = mousePos
+	_G.SDK.Orbwalker:SetAttack(false)
+	_G.SDK.Orbwalker:SetMovement(false)
+	DelayAction(function()
+		_G.Control.SetCursorPos(Geometry:To3D(pos))
+		ControlKeyDown(spell); ControlKeyUp(spell)
+		DelayAction(function()
+			_G.Control.SetCursorPos(mPos)
+			_G.SDK.Orbwalker:SetAttack(true)
+			_G.SDK.Orbwalker:SetMovement(true)
+		end, windup)
+	end, 0.01)
+end
+
+function Yasuo:GetTarget(range)
+	local units = {}
+	for i, enemy in ipairs(Manager:GetEnemyHeroes()) do
+		if Manager:IsValid(enemy, range, self.MyPos) then
+			TableInsert(units, enemy)
+		end
+	end
+	TableSort(units, function(a, b) return
+		Manager:CalcPhysicalDamage(myHero, a, 100) / (1 + a.health) * Manager:GetPriority(a) >
+		Manager:CalcPhysicalDamage(myHero, b, 100) / (1 + b.health) * Manager:GetPriority(b)
+	end)
+	return #units > 0 and units[1] or nil
+end
+
+function Yasuo:HasQ3()
+	return myHero:GetSpellData(_Q).range > 600
+end
+
+function Yasuo:IsDashing()
+	return myHero.pathing.isDashing
+end
+
+function Yasuo:IsDashPosSafe(target)
+	return not Manager:IsUnderTurret(self:CalcDashPosition(target))
+end
+
+function Yasuo:IsMarked(unit)
+	for i = 0, unit.buffCount do
+		local buff = unit:GetBuff(i)
+		if buff and buff.count > 0 and buff.name == "YasuoE" then
+			return true
+		end
+	end
+	return false
+end
+
+function Yasuo:IsPosSafe(pos, data)
+	return Geometry:Distance(pos, data.type == "circular" and data.endPos or
+		Geometry:ClosestPointOnSegment(data.startPos, data.endPos))
+			<= data.radius + (myHero.boundingRadius or 65) * 2
+end
+
+function Yasuo:KnockupDuration(unit)
+	for i = 0, unit.buffCount do
+		local buff = unit:GetBuff(i)
+		if buff and buff.count > 0 and self.KnockBuffs[buff.type] then
+			return buff.duration
+		end
+	end
+	return 0
+end
+
+function Yasuo:PredictHealth(unit)
+	return _G.SDK.HealthPrediction:GetPrediction(unit, self:CalcSweepArrivalTime(unit))
+end
+
+-- Events
+
+function Yasuo:OnPreAttack(args)
+	if self:IsDashing() then args.Process = false; return end
+end
+
+function Yasuo:OnPreMovement(args)
+	if self:IsDashing() then args.Process = false; return end
+end
+
+function Yasuo:OnProcessSpell(unit, spell)
+	if not (self.YasuoMenu.WindWall and self.YasuoMenu.WindWall.UseW:Value()) then return end
+	local unitPos, name = Geometry:To2D(unit.pos), spell.name
+	if self.YasuoMenu.WindWall.Spells[name] and self.YasuoMenu.WindWall.Spells[name]:Value() then
+		local data = WindwallBlockSpells[unit.charName][name]
+		if self.YasuoMenu.WindWall.CCW:Value() and not data.cc then return end
+		if data.type == "targeted" then
+			if spell.target == myHero.handle then
+				self:CustomCastSpell(HK_W, Geometry:To3D(PPoint(
+					self.MyPos):Extended(Geometry:To2D(unit.pos), 300)), 0.07)
+			end; return
+		end
+		local startPos, placementPos = Geometry:To2D(spell.startPos), Geometry:To2D(spell.placementPos)
+		local endPos = data.extend and PPoint(startPos):Extended(placementPos, data.range) or PPoint(placementPos)
+		if data.type == "conic" then
+			if _G.PremiumPrediction:IsPointInArc(startPos, self.MyPos, endPos, data.range, data.angle) then
+				self:CustomCastSpell(HK_W, Geometry:To3D(PPoint(self.MyPos):Extended(data.endPos, 300)), 0.07)
+			end; return
+		end
+		TableInsert(self.DetectedSpells, {startPos = startPos, endPos = endPos, speed = data.speed,
+			range = data.range, delay = data.delay, radius = data.radius, type = data.type,
+			collision = data.collision, startTime = GameTimer() - 0.025})
+	end
+end
+
+function Yasuo:OnTick()
+	self.MyPos = Geometry:To2D(myHero.pos)
+	if _G.JustEvade and _G.JustEvade:Evading() or (_G.ExtLibEvade and _G.ExtLibEvade.Evading) or
+		_G.SDK.Orbwalker:IsAutoAttacking() or Game.IsChatOpen() or myHero.dead then return end
+	self:Auto()
+	self.Q.delay = myHero.attackData.windup or 0.339
+	local mode = Manager:GetOrbwalkerMode()
+	if mode == "Clear" then self:Clear(); return end
+	local tQ, tE = self:HasQ3() and self:GetTarget(self.Q3.range) or
+		self:GetTarget(self.Q.range), self:GetTarget(self.R.range)
+	if mode == "Combo" then self:Combo(tQ, tE)
+	elseif mode == "Harass" then self:Harass(tQ, tE) end
+end
+
+function Yasuo:OnDraw()
+	if not self.YasuoMenu.Drawings or Game.IsChatOpen() or myHero.dead then return end
+	if self.YasuoMenu.Drawings.DrawQ:Value() then
+		DrawCircle(myHero.pos, self:HasQ3() and self.Q3.range
+			or self.Q.range, 1, Draw.Color(96, 0, 191, 255))
+	end
+	if self.YasuoMenu.Drawings.DrawE:Value() then
+		DrawCircle(myHero.pos, self.E.range, 1, Draw.Color(96, 65, 105, 225))
+	end
+	if self.YasuoMenu.Drawings.DrawR:Value() and Manager:IsReady(_R) then
+		DrawCircle(myHero.pos, self.R.range, 1, Draw.Color(96, 0, 0, 255))
+	end
+	if not self.MyPos then return end
+	if self.YasuoMenu.Drawings.Track:Value() then
+		for i, enemy in ipairs(Manager:GetEnemyHeroes()) do
+			if enemy and enemy.valid and enemy.visible then
+				local dist = Geometry:DistanceSquared(self.MyPos, Geometry:To2D(enemy.pos))
+				DrawLine(myHero.pos:To2D(), enemy.pos:To2D(), 2,
+					dist < 4000000 and Draw.Color(128, 220, 20, 60)
+					or dist < 16000000 and Draw.Color(128, 240, 230, 140)
+					or Draw.Color(128, 152, 251, 152))
+			end
+		end
+	end
+end
+
+function Yasuo:Auto()
+	if not self.YasuoMenu.Misc then return end
+	if self.Ignite ~= nil and self.YasuoMenu.Misc.UseIgnite:Value() and Manager:IsReady(self.Ignite[1]) then
+		local units = Manager:GetEnemiesAround(self.MyPos, 600)
+		for i, enemy in ipairs(units) do
+			if Geometry:DistanceSquared(self.MyPos, Geometry:To2D(enemy.pos)) > 168100 then
+				local dmg = 50 + 20 * Manager:GetSummonerLevel()
+				if dmg >= (enemy.health + enemy.hpRegen * 3) then
+					_G.Control.CastSpell(self.Ignite[2], enemy.pos); break
+				end
+			end
+		end
+	end
+	if #self.DetectedSpells > 0 then
+		for i = #self.DetectedSpells, 1, -1 do
+			local data = self.DetectedSpells[i]
+			local diff = GameTimer() - data.startTime
+			if data.range / data.speed + data.delay <= diff then
+				TableRemove(self.DetectedSpells, i); return
+			end
+			if Manager:IsReady(_W) then
+				if data.speed ~= MathHuge then
+					local position = Geometry:CalcSkillshotPosition(data, diff)
+					if Geometry:Distance(self.MyPos, position) <=
+						data.radius + (myHero.boundingRadius or 65) * 2 then
+							self:CustomCastSpell(HK_W, position, 0.07); return
+					end
+				elseif data.delay - diff < 0.3 and self:IsPosSafe(self.MyPos, data) then
+					self:CustomCastSpell(HK_W, Geometry:To3D(PPoint(
+						self.MyPos):Extended(data.endPos, 300)), 0.07); return
+				end
+			end
+		end
+	end
+end
+
+function Yasuo:Clear()
+	if GameTimer() - self.QueueTimer <= (myHero.attackData.windup or 0.25) or self:IsDashing() then return end
+	local hasQ3, isQReady = self:HasQ3(), Manager:IsReady(_Q)
+	local minions, points = Manager:GetMinionsAround(self.MyPos,
+		hasQ3 and isQReady and self.Q3.range or self.Q.range), {}
+	if hasQ3 and self.YasuoMenu.LaneClear.UseQ3:Value() or self.YasuoMenu.LaneClear.UseQ:Value() then
+		if isQReady and not self:IsDashing() then
+			for i, minion in ipairs(minions) do
+				local predPos = _G.PremiumPrediction:GetFastPrediction(
+					myHero, minion, hasQ3 and self.Q3 or self.Q)
+				if predPos then TableInsert(points, Geometry:To2D(predPos)) end
+			end
+			local pos = Geometry:GetStaticLinearAOEPos(points, hasQ3 and
+				self.Q3.range or self.Q.range, hasQ3 and self.Q3.radius or self.Q.radius)
+			if pos then
+				self.QueueTimer = GameTimer()
+				_G.Control.CastSpell(HK_Q, Geometry:To3D(pos))
+			end
+			return
+		end
+	end
+	if Manager:IsReady(_E) and self.YasuoMenu.LaneClear.UseE:Value() then
+		for i, minion in ipairs(minions) do
+			if not self:IsMarked(minion) then
+				local rawDmg = 10 * (myHero:GetSpellData(_E).level or 1) +
+					50 + (0.2 * myHero.bonusDamage) + (0.6 * myHero.ap)
+				local dmg = Manager:CalcPhysicalDamage(myHero, minion, rawDmg)
+				if self:PredictHealth(minion) < dmg and self:IsDashPosSafe(minion) then
+					_G.Control.CastSpell(HK_E, minion.pos); break
+				end
+			end
+		end
+	end
+end
+
+function Yasuo:Combo(targetQ, targetE)
+	if GameTimer() - self.QueueTimer <= (myHero.attackData.windup or 0.25) then return end
+	local isDash = self:IsDashing()
+	if targetQ and Manager:IsReady(_Q) then
+		local hasQ3 = self:HasQ3()
+		if hasQ3 and self.YasuoMenu.Combo.UseQ3:Value() or self.YasuoMenu.Combo.UseQ:Value() then
+			if isDash and myHero.pathing.endPos and Geometry:Distance(Geometry:To2D(
+				targetQ.pos), Geometry:To2D(myHero.pathing.endPos)) < 230 then
+					self.QueueTimer = GameTimer()
+					ControlKeyDown(HK_Q); ControlKeyUp(HK_Q)
+			elseif not isDash then
+				local pred = _G.PremiumPrediction:GetAOEPrediction(myHero, targetQ, hasQ3 and self.Q3 or self.Q)
+				if pred.CastPos and pred.HitChance >= self.YasuoMenu.HitChance.HCQ:Value() / 1000 then
+					self.QueueTimer = GameTimer()
+					_G.Control.CastSpell(HK_Q, pred.CastPos)
+				end
+			end
+		end
+	end
+	if targetE and Manager:IsReady(_E) and self.YasuoMenu.Combo.UseE:Value() then
+		local range = myHero.range + (myHero.boundingRadius or 65) + (targetE.boundingRadius or 32)
+		local dist = Geometry:Distance(self.MyPos, Geometry:To2D(targetE.pos))
+		if dist > range then
+			if not self:IsMarked(targetE) and dist < self.E.range then
+				_G.Control.CastSpell(HK_E, targetE.pos); return
+			end
+			local minions = Manager:GetMinionsAround(self.MyPos, self.E.range)
+			for i, minion in ipairs(minions) do
+				if not self:IsMarked(minion) then
+					local dash = self:CalcDashPosition(minion)
+					if Geometry:Distance(self.MyPos, dash) + range / 2 <= dist then
+						local checkE = self.YasuoMenu.Combo.CheckE:Value()
+						if checkE and not Manager:IsUnderTurret(dash) or not checkE then
+							_G.Control.CastSpell(HK_E, minion.pos); break
+						end
+					end
+				end
+			end
+		end
+	end
+	if Manager:IsReady(_R) and self.YasuoMenu.Combo.UseR:Value() then
+		local units, knocks = Manager:GetEnemiesAround(self.MyPos, self.R.range), {}
+		for i, enemy in ipairs(units) do
+			local duration = self:KnockupDuration(enemy)
+			if duration > 0 and duration <= 0.3 and Manager:GetPercentHealth(enemy) <=
+				self.YasuoMenu.Combo.MaxHPR:Value() then TableInsert(knocks, enemy) end
+		end
+		if #knocks >= self.YasuoMenu.Combo.KnockR:Value() then
+			TableSort(knocks, function(a, b) return
+				Manager:CalcPhysicalDamage(myHero, a, 100) >
+				Manager:CalcPhysicalDamage(myHero, b, 100)
+			end)
+			self.QueueTimer = GameTimer()
+			_G.Control.CastSpell(HK_R, knocks[1].pos)
+		end
+	end
+end
+
+function Yasuo:Harass(targetQ, targetE, targetS)
+	if GameTimer() - self.QueueTimer <= (myHero.attackData.windup or 0.25) then return end
+	local isDash = self:IsDashing()
+	if targetQ and Manager:IsReady(_Q) then
+		local hasQ3 = self:HasQ3()
+		if hasQ3 and self.YasuoMenu.Harass.UseQ3:Value() or self.YasuoMenu.Harass.UseQ:Value() then
+			if isDash and myHero.pathing.endPos and Geometry:Distance(Geometry:To2D(
+				targetQ.pos), Geometry:To2D(myHero.pathing.endPos)) < 230 then
+					self.QueueTimer = GameTimer()
+					ControlKeyDown(HK_Q); ControlKeyUp(HK_Q)
+			elseif not isDash then
+				local pred = _G.PremiumPrediction:GetAOEPrediction(myHero, targetQ, hasQ3 and self.Q3 or self.Q)
+				if pred.CastPos and pred.HitChance >= self.YasuoMenu.HitChance.HCQ:Value() / 1000 then
+					self.QueueTimer = GameTimer()
+					_G.Control.CastSpell(HK_Q, pred.CastPos)
+				end
+			end
+		end
+	end
+	if targetE and Manager:IsReady(_E) and self.YasuoMenu.Harass.UseE:Value() then
+		local range = myHero.range + (myHero.boundingRadius or 65) + (targetE.boundingRadius or 32)
+		local dist = Geometry:Distance(self.MyPos, Geometry:To2D(targetE.pos))
+		if dist > range then
+			if not self:IsMarked(targetE) and dist < self.E.range then
+				_G.Control.CastSpell(HK_E, targetE.pos); return
+			end
+			local minions = Manager:GetMinionsAround(self.MyPos, self.E.range)
+			for i, minion in ipairs(minions) do
+				if not self:IsMarked(minion) then
+					local dash = self:CalcDashPosition(minion)
+					if Geometry:Distance(self.MyPos, dash) + range / 2 <= dist then
+						local checkE = self.YasuoMenu.Harass.CheckE:Value()
+						if checkE and not Manager:IsUnderTurret(dash) or not checkE then
+							_G.Control.CastSpell(HK_E, minion.pos); break
+						end
+					end
+				end
+			end
 		end
 	end
 end
