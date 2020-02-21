@@ -1689,7 +1689,7 @@ end
 class "Viktor"
 
 function Viktor:__init()
-	self.StartPos, self.EndPos = nil, nil
+	self.StartPos, self.EndPos, self.MPos = nil, nil, nil
 	self.AttackRange, self.QueueTimer = myHero.range + myHero.boundingRadius + 35, 0
 	self.Ignite = myHero:GetSpellData(SUMMONER_1).name == "SummonerDot" and {SUMMONER_1, HK_SUMMONER_1} or
 		myHero:GetSpellData(SUMMONER_2).name == "SummonerDot" and {SUMMONER_2, HK_SUMMONER_2} or nil
@@ -1736,7 +1736,7 @@ end
 -- Methods
 
 function Viktor:CustomCastSpell(startPos, endPos)
-	self.StartPos, self.EndPos = startPos, endPos
+	self.StartPos, self.EndPos, self.MPos = startPos, endPos, mousePos
 end
 
 function Viktor:GetBestLaserCastPos()
@@ -1806,7 +1806,10 @@ function Viktor:OnTick()
 		if self.EndPos then
 			ControlSetCursorPos(self.EndPos)
 			ControlKeyUp(HK_E)
-			self.EndPos = nil; return
+			self.EndPos = nil
+			DelayAction(function()
+				ControlSetCursorPos(self.MPos)
+			end, 0.01); return
 		elseif not Manager:IsReady(_E) then
 			ControlKeyUp(HK_E)
 		end
