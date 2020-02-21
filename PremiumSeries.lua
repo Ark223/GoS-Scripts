@@ -2255,6 +2255,7 @@ function Yasuo:__init()
 	self.Q3 = {speed = 1200, range = 1000, delay = 0.339, radius = 90, collision = nil, type = "linear"}
 	self.E = {range = 475}
 	self.R = {range = 1400}
+	self.MyPos, self.MousePos = nil, nil
 	self.KnockBuffs, self.DetectedSpells, self.QueueTimer = {[29] = true, [30] = true}, {}, 0
 	self.Ignite = myHero:GetSpellData(SUMMONER_1).name == "SummonerDot" and {SUMMONER_1, HK_SUMMONER_1} or
 		myHero:GetSpellData(SUMMONER_2).name == "SummonerDot" and {SUMMONER_2, HK_SUMMONER_2} or nil
@@ -2429,7 +2430,7 @@ function Yasuo:OnProcessSpell(unit, spell)
 end
 
 function Yasuo:OnTick()
-	self.MyPos = Geometry:To2D(myHero.pos)
+	self.MyPos, self.MousePos = Geometry:To2D(myHero.pos), Geometry:To2D(mousePos)
 	if _G.JustEvade and _G.JustEvade:Evading() or (_G.ExtLibEvade and _G.ExtLibEvade.Evading) or
 		_G.SDK.Orbwalker:IsAutoAttacking() or Game.IsChatOpen() or myHero.dead then return end
 	self:Auto()
@@ -2569,7 +2570,8 @@ function Yasuo:Combo(targetQ, targetE)
 			for i, minion in ipairs(minions) do
 				if not self:IsMarked(minion) then
 					local dash = self:CalcDashPosition(minion)
-					if Geometry:Distance(self.MyPos, dash) + range / 2 <= dist then
+					if Geometry:DistanceSquared(self.MousePos, Geometry:To2D(minion.pos)) <= 62500
+						and Geometry:Distance(self.MyPos, dash) + range / 3 <= dist then
 						local checkE = self.YasuoMenu.Combo.CheckE:Value()
 						if checkE and not Manager:IsUnderTurret(dash) or not checkE then
 							_G.Control.CastSpell(HK_E, minion.pos); break
@@ -2627,7 +2629,8 @@ function Yasuo:Harass(targetQ, targetE, targetS)
 			for i, minion in ipairs(minions) do
 				if not self:IsMarked(minion) then
 					local dash = self:CalcDashPosition(minion)
-					if Geometry:Distance(self.MyPos, dash) + range / 2 <= dist then
+					if Geometry:DistanceSquared(self.MousePos, Geometry:To2D(minion.pos)) <= 62500
+						and Geometry:Distance(self.MyPos, dash) + range / 3 <= dist then
 						local checkE = self.YasuoMenu.Harass.CheckE:Value()
 						if checkE and not Manager:IsUnderTurret(dash) or not checkE then
 							_G.Control.CastSpell(HK_E, minion.pos); break
