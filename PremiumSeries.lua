@@ -2219,7 +2219,6 @@ function Xerath:Action(mode, targetQ, targetWE)
 		end
 		self.LastPos, self.LastDirection = Geometry:To2D(targetQ.pos), Geometry:To2D(targetQ.dir)
 		if not self.ActiveQ then ControlKeyDown(HK_Q); return end
-		local moveSpeed = targetQ.ms or 500
 		local range = (GameTimer() - self.InitChargeTimer) * 500 + self.Q.minRange
 		local predPos = _G.PremiumPrediction:GetFastPrediction(myHero, targetQ, self.Q)
 		if predPos == nil then return end
