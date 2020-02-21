@@ -2559,7 +2559,7 @@ function Yasuo:Combo(targetQ, targetE)
 			end
 		end
 	end
-	if targetE and Manager:IsReady(_E) and self.YasuoMenu.Combo.UseE:Value() then
+	if targetE and Manager:IsReady(_E) and self.YasuoMenu.Combo.UseE:Value() and not isDash then
 		local range = myHero.range + (myHero.boundingRadius or 65) + (targetE.boundingRadius or 32)
 		local dist = Geometry:Distance(self.MyPos, Geometry:To2D(targetE.pos))
 		if dist > range then
@@ -2570,8 +2570,8 @@ function Yasuo:Combo(targetQ, targetE)
 			for i, minion in ipairs(minions) do
 				if not self:IsMarked(minion) then
 					local dash = self:CalcDashPosition(minion)
-					if Geometry:DistanceSquared(self.MousePos, Geometry:To2D(minion.pos)) <= 62500
-						and Geometry:Distance(self.MyPos, dash) + range / 3 <= dist then
+					if Geometry:DistanceSquared(self.MousePos, Geometry:To2D(minion.pos)) <= 90000
+						and Geometry:Distance(self.MyPos, dash) + range / 4 <= dist then
 						local checkE = self.YasuoMenu.Combo.CheckE:Value()
 						if checkE and not Manager:IsUnderTurret(dash) or not checkE then
 							_G.Control.CastSpell(HK_E, minion.pos); break
@@ -2618,7 +2618,7 @@ function Yasuo:Harass(targetQ, targetE, targetS)
 			end
 		end
 	end
-	if targetE and Manager:IsReady(_E) and self.YasuoMenu.Harass.UseE:Value() then
+	if targetE and Manager:IsReady(_E) and self.YasuoMenu.Harass.UseE:Value() and not isDash then
 		local range = myHero.range + (myHero.boundingRadius or 65) + (targetE.boundingRadius or 32)
 		local dist = Geometry:Distance(self.MyPos, Geometry:To2D(targetE.pos))
 		if dist > range then
@@ -2629,8 +2629,8 @@ function Yasuo:Harass(targetQ, targetE, targetS)
 			for i, minion in ipairs(minions) do
 				if not self:IsMarked(minion) then
 					local dash = self:CalcDashPosition(minion)
-					if Geometry:DistanceSquared(self.MousePos, Geometry:To2D(minion.pos)) <= 62500
-						and Geometry:Distance(self.MyPos, dash) + range / 3 <= dist then
+					if Geometry:DistanceSquared(self.MousePos, Geometry:To2D(minion.pos)) <= 90000
+						and Geometry:Distance(self.MyPos, dash) + range / 4 <= dist then
 						local checkE = self.YasuoMenu.Harass.CheckE:Value()
 						if checkE and not Manager:IsUnderTurret(dash) or not checkE then
 							_G.Control.CastSpell(HK_E, minion.pos); break
