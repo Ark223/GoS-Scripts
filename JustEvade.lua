@@ -902,7 +902,8 @@ end
 local Vertex = {}
 
 function Vertex:New(x, y, alpha, intersection)
-	local new = {x = x, y = y, next = nil, prev = nil, nextPoly = nil, neighbor = nil, intersection = intersection, entry = nil, visited = false, alpha = alpha or 0}
+	local new = {x = x, y = y, next = nil, prev = nil, nextPoly = nil, neighbor = nil,
+		intersection = intersection, entry = nil, visited = false, alpha = alpha or 0}
 	setmetatable(new, self)
 	self.__index = self
 	return new
@@ -1456,6 +1457,16 @@ function JEvade:DotProduct(p1, p2)
 	return p1.x * p2.x + p1.y * p2.y
 end
 
+function JEvade:FindIntersections(poly, p1, p2)
+	local intersections = {}
+	for i = 1, #poly do
+		local startPos, endPos = poly[i], poly[i == #poly and 1 or (i + 1)]
+		local int = self:LineSegmentIntersection(startPos, endPos, p1, p2)
+		if int then TableInsert(intersections, int:Round()) end
+	end
+	return intersections
+end
+
 function JEvade:FixPos(pos, y)
 	return Vector(pos.x, y or myHero.pos.y, pos.y):To2D()
 end
@@ -1543,15 +1554,25 @@ function JEvade:IsAboutToHit(spell, pos, extra)
 	if extra and evadeSpell and evadeSpell.type ~= 2 then return false end
 	local moveSpeed, myPos = self:GetMovementSpeed(extra, evadeSpell), self.MyHeroPos
 	if moveSpeed == MathHuge then return false end
-	local diff, latency = GameTimer() - spell.startTime, self.JEMenu.Core.GP:Value() / 2000
+	local diff, pos = GameTimer() - spell.startTime, self:AppendVector(myPos, pos, 99999)
 	if spell.speed ~= MathHuge and spell.type == "linear" or spell.type == "threeway" then
-		local t = MathMax(0, self:Distance(myPos, pos) / moveSpeed + latency + diff - spell.delay)
-		t = MathMax(0, MathMin(self:Distance(spell.position, spell.endPos), t * spell.speed))
-		local fPos = Point2D(spell.position):Extended(spell.endPos, t)
-		local col = self:ClosestPointOnSegment(spell.position, fPos, myPos)
-		return self:Distance(myPos, col) <= (spell.radius + self.BoundingRadius + 5)
+		if spell.delay > 0 and diff <= spell.delay then
+			myPos = Point2D(myPos):Extended(pos, MathMax(0, spell.delay - diff) * moveSpeed)
+			if not self:IsPointInPolygon(spell.path, myPos) then return false end
+		end
+		local va = Point2D(pos - myPos):Normalized() * moveSpeed
+		local vb = Point2D(spell.endPos - spell.position):Normalized() * spell.speed
+		local da, db = Point2D(myPos - spell.position), Point2D(va - vb)
+		local a, b = self:DotProduct(db, db), 2 * self:DotProduct(da, db)
+		local c = self:DotProduct(da, da) - (spell.radius + self.BoundingRadius + 5) ^ 2
+		local delta = b * b - 4 * a * c
+		if delta >= 0 then
+			local rtDelta = MathSqrt(delta)
+			local t1, t2 = (-b + rtDelta) / (2 * a), (-b - rtDelta) / (2 * a)
+			return MathMax(t1, t2) >= 0
+		end
 	end
-	local t = MathMax(0, spell.range / spell.speed + spell.delay - latency - diff)
+	local t = MathMax(0, spell.range / spell.speed + spell.delay - diff)
 	local fPos = Point2D(myPos):Extended(pos, moveSpeed * t)
 	return self:IsPointInPolygon(spell.path, fPos)
 end
@@ -1635,9 +1656,9 @@ end
 
 function JEvade:AddSpell(p1, p2, sP, eP, data, speed, range, delay, radius, name)
 	TableInsert(self.DetectedSpells, {
-		path = p1, path2 = p2, position = sP, startPos = sP, endPos = eP, speed = speed,
-		range = range, delay = delay, radius = radius, radius2 = data.radius2, angle = data.angle,
-		name = name, startTime = GameTimer() - self.JEMenu.Core.GP:Value() / 2000, type = data.type,
+		path = p1, path2 = p2, position = sP, startPos = sP, endPos = eP, speed = speed, range = range,
+		delay = delay, radius = radius, radius2 = data.radius2, angle = data.angle, name = name,
+		startTime = GameTimer() - self.JEMenu.Core.GP:Value() / 2000 - 0.05, type = data.type,
 		danger = self.JEMenu.Spells[name]["Danger"..name]:Value() or 1, cc = data.cc,
 		collision = data.collision, windwall = data.windwall, y = data.y
 	})
@@ -1803,11 +1824,8 @@ function JEvade:Tick()
 			for i, s in ipairs(self.DodgeableSpells) do
 				local poly = s.path
 				if not self:IsPointInPolygon(poly, self.MyHeroPos) then
-					for j = 1, #poly do
-						local startPos, endPos = poly[j], poly[j == #poly and 1 or (j + 1)]
-						local int = self:LineSegmentIntersection(startPos, endPos, self.MyHeroPos, movePath)
-						if int then TableInsert(ints, int) end
-					end
+					local findInts = self:FindIntersections(poly, self.MyHeroPos, movePath)
+					for i, int in ipairs(findInts) do TableInsert(ints, int) end
 				end
 			end
 			if #ints > 0 then
