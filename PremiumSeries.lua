@@ -2298,7 +2298,6 @@ function Yasuo:__init()
 				end
 			end
 		end
-		_G.PremiumPrediction:OnProcessSpell(function(...) self:OnProcessSpell(...) end)
 		self.YasuoMenu:MenuElement({id = "Drawings", name = "Drawings", type = MENU})
 		self.YasuoMenu.Drawings:MenuElement({id = "DrawQ", name = "Q: Draw Range", value = true})
 		self.YasuoMenu.Drawings:MenuElement({id = "DrawE", name = "E: Draw Range", value = true})
@@ -2315,6 +2314,7 @@ function Yasuo:__init()
 	Callback.Add("Draw", function() self:OnDraw() end)
 	_G.SDK.Orbwalker:OnPreAttack(function(...) self:OnPreAttack(...) end)
 	_G.SDK.Orbwalker:OnPreMovement(function(...) self:OnPreMovement(...) end)
+	_G.PremiumPrediction:OnProcessSpell(function(...) self:OnProcessSpell(...) end)
 end
 
 -- Methods
