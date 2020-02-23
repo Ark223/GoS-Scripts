@@ -1574,9 +1574,8 @@ function JEvade:IsAboutToHit(spell, pos, extra)
 		end
 		return false
 	end
-	local t = MathMax(0, spell.range / spell.speed + spell.delay - diff)
-	local fPos = Point2D(myPos):Extended(pos, moveSpeed * t)
-	return self:IsPointInPolygon(spell.path, fPos)
+	local t = MathMax(0, spell.range / spell.speed + spell.delay - diff - 0.07)
+	return self:IsPointInPolygon(spell.path, myPos:Extended(pos, moveSpeed * t))
 end
 
 function JEvade:IsDangerous(pos)
@@ -1818,7 +1817,6 @@ function JEvade:Tick()
 		local result = 0
 		for i, s in ipairs(self.DodgeableSpells) do
 			result = result + self:CoreManager(s)
-			if self.Evading then self:DodgeSpell(s) end
 		end
 		local movePath = self:GetMovePath()
 		if movePath and not self.Evading then
@@ -1834,11 +1832,14 @@ function JEvade:Tick()
 				TableSort(ints, function(a, b) return
 					self:DistanceSquared(self.MyHeroPos, a) <
 					self:DistanceSquared(self.MyHeroPos, b) end)
-				local movePos = self:PrependVector(self.MyHeroPos, ints[1], self.BoundingRadius / 2)
+				local movePos = self:PrependVector(self.MyHeroPos,
+					ints[1], self.BoundingRadius / 2)
 				self:MoveToPos(movePos)
 			end
 		end
-		if result == 0 then self.Evading, self.SafePos, self.ExtendedPos = false, nil, nil end
+		if self.Evading then self:DodgeSpell() end
+		if result == 0 then self.Evading, self.SafePos,
+			self.ExtendedPos = false, nil, nil end
 	else
 		if self.JEMenu.Main.Debug:Value() then self.Debug = {} end
 		self.Evading, self.SafePos, self.ExtendedPos = false, nil, nil
@@ -1908,11 +1909,13 @@ function JEvade:SpellManager(i, s)
 	else TableRemove(self.DetectedSpells, i) end
 end
 
-function JEvade:DodgeSpell(spell)
-	if Buffs and Buffs[myHero.charName] and self:HasBuff(Buffs[myHero.charName]) then
-		self.SafePos, self.ExtendedPos = nil, nil
+function JEvade:DodgeSpell()
+	if Buffs and Buffs[myHero.charName] and
+		self:HasBuff(Buffs[myHero.charName]) then
+			self.SafePos, self.ExtendedPos = nil, nil
 	end
-	if self.ExtendedPos then self:MoveToPos(self.ExtendedPos) end
+	if self.ExtendedPos then
+		self:MoveToPos(self.ExtendedPos) end
 end
 
 function JEvade:Avoid(spell, dodgePos, data)
