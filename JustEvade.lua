@@ -1484,10 +1484,12 @@ function JEvade:GetBestEvadePos(spells, radius, mode, extra, force)
 			local startPos, endPos = poly[j], poly[j == #poly and 1 or (j + 1)]
 			local original = self:ClosestPointOnSegment(startPos, endPos, self.MyHeroPos)
 			local distSqr = self:DistanceSquared(original, self.MyHeroPos)
-			if distSqr < 360000 then
+			if distSqr <= 360000 then
 				if force then
-					if distSqr < 160000 and self:IsDangerous(original) and
-					not MapPosition:inWall(self:To3D(original)) then return original end
+					local candidate = self:AppendVector(self.MyHeroPos, original, 5)
+					if distSqr <= 160000 and not self:IsDangerous(candidate)
+						and not MapPosition:inWall(self:To3D(candidate)) then
+							TableInsert(points, candidate) end
 				else
 					local direction = Point2D(endPos - startPos):Normalized()
 					local step = self.JEMenu.Core.DC:Value()
@@ -1504,7 +1506,9 @@ function JEvade:GetBestEvadePos(spells, radius, mode, extra, force)
 	end
 	if #points > 0 then
 		TableSort(points, evadeModes[mode])
-		if self.JEMenu.Main.Debug:Value() then self.Debug = points end
+		if self.JEMenu.Main.Debug:Value() then
+			self.Debug = force and {points[1]} or points
+		end
 		return points[1]
 	end
 	return nil
