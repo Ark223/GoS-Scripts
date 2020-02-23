@@ -1663,7 +1663,7 @@ function JEvade:AddSpell(p1, p2, sP, eP, data, speed, range, delay, radius, name
 	TableInsert(self.DetectedSpells, {
 		path = p1, path2 = p2, position = sP, startPos = sP, endPos = eP, speed = speed, range = range,
 		delay = delay, radius = radius, radius2 = data.radius2, angle = data.angle, name = name,
-		startTime = GameTimer() - self.JEMenu.Core.GP:Value() / 2000 - 0.05, type = data.type,
+		startTime = GameTimer() - self.JEMenu.Core.GP:Value() / 2000, type = data.type,
 		danger = self.JEMenu.Spells[name]["Danger"..name]:Value() or 1, cc = data.cc,
 		collision = data.collision, windwall = data.windwall, y = data.y
 	})
