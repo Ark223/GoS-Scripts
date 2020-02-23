@@ -2199,14 +2199,17 @@ end
 
 function Xerath:Action(mode, targetQ, targetWE)
 	if GameTimer() - self.QueueTimer <= 0.3 then return end
-	if targetWE and Manager:IsReady(_W) and (mode == "Combo" and self.XerathMenu.Combo.UseW:Value() or self.XerathMenu.Harass.UseW:Value()) then
+	if targetWE and Manager:IsReady(_W) and (mode == "Combo" and
+		self.XerathMenu.Combo.UseW:Value() or self.XerathMenu.Harass.UseW:Value()) then
 		local pred = _G.PremiumPrediction:GetAOEPrediction(myHero, targetWE, self.W)
 		if pred.CastPos and pred.HitChance >= self.XerathMenu.HitChance.HCW:Value() / 1000 then
 			self.QueueTimer = GameTimer()
 			_G.Control.CastSpell(HK_W, pred.CastPos)
 		end
 	end
-	if Manager:IsReady(_Q) and (mode == "Combo" and self.XerathMenu.Combo.UseQ:Value() or self.XerathMenu.Harass.UseQ:Value()) then
+	if Manager:IsReady(_Q) and (mode == "Combo" and
+		self.XerathMenu.Combo.UseQ:Value() or
+		self.XerathMenu.Harass.UseQ:Value()) then
 		if targetQ == nil then
 			if self.ActiveQ and self.LastPos and self.LastDirection and
 				(GameTimer() - self.InitChargeTimer) * 500 + self.Q.minRange >= self.Q.range then
@@ -2233,7 +2236,8 @@ function Xerath:Action(mode, targetQ, targetWE)
 			end
 		end
 	end
-	if targetWE and Manager:IsReady(_E) and (mode == "Combo" and self.XerathMenu.Combo.UseE:Value() or self.XerathMenu.Harass.UseE:Value()) then
+	if targetWE and Manager:IsReady(_E) and (mode == "Combo" and
+		self.XerathMenu.Combo.UseE:Value() or self.XerathMenu.Harass.UseE:Value()) then
 		local pred = _G.PremiumPrediction:GetPrediction(myHero, targetWE, self.E)
 		if pred.CastPos and pred.HitChance >= self.XerathMenu.HitChance.HCE:Value() / 1000 then
 			self.QueueTimer = GameTimer()
@@ -2280,21 +2284,21 @@ function Yasuo:__init()
 	--self.YasuoMenu:MenuElement({id = "KillSteal", name = "KillSteal", type = MENU})
 	--self.YasuoMenu.KillSteal:MenuElement({id = "UseE", name = "E [Sweeping Blade]", value = true, leftIcon = Icons.."YasuoE"..Png})
 	DelayAction(function()
-		if not _G.JustEvade then
-			self.YasuoMenu:MenuElement({id = "WindWall", name = "WindWall", type = MENU})
-			self.YasuoMenu.WindWall:MenuElement({id = "Spells", name = "Detected Spells", type = MENU})
-			self.YasuoMenu.WindWall:MenuElement({id = "UseW", name = "W [Wind Wall]", value = true, leftIcon = Icons.."YasuoW"..Png})
-			self.YasuoMenu.WindWall:MenuElement({id = "CCW", name = "W: Cast Against CC Only", value = false})
-			for i, enemy in ipairs(Manager:GetEnemyHeroes()) do
-				if enemy and WindwallBlockSpells[enemy.charName] then
-					for j, spell in pairs(WindwallBlockSpells[enemy.charName]) do
+		self.YasuoMenu:MenuElement({id = "WindWall", name = "WindWall", type = MENU})
+		self.YasuoMenu.WindWall:MenuElement({id = "Spells", name = "Detected Spells", type = MENU})
+		self.YasuoMenu.WindWall:MenuElement({id = "UseW", name = "W [Wind Wall]", value = true, leftIcon = Icons.."YasuoW"..Png})
+		self.YasuoMenu.WindWall:MenuElement({id = "CCW", name = "W: Cast Against CC Only", value = false})
+		for i, enemy in ipairs(Manager:GetEnemyHeroes()) do
+			if enemy and WindwallBlockSpells[enemy.charName] then
+				for j, spell in pairs(WindwallBlockSpells[enemy.charName]) do
+					if not _G.JustEvade and spell.type ~= "targeted" or spell.type == "targeted" then
 						self.YasuoMenu.WindWall.Spells:MenuElement({id = j, name = enemy.charName .. " " .. spell.slot
 							.. " [" .. spell.displayName .. "]", value = true, leftIcon = Icons .. spell.name .. Png})
 					end
 				end
 			end
-			_G.PremiumPrediction:OnProcessSpell(function(...) self:OnProcessSpell(...) end)
 		end
+		_G.PremiumPrediction:OnProcessSpell(function(...) self:OnProcessSpell(...) end)
 		self.YasuoMenu:MenuElement({id = "Drawings", name = "Drawings", type = MENU})
 		self.YasuoMenu.Drawings:MenuElement({id = "DrawQ", name = "Q: Draw Range", value = true})
 		self.YasuoMenu.Drawings:MenuElement({id = "DrawE", name = "E: Draw Range", value = true})
