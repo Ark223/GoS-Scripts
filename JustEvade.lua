@@ -1552,25 +1552,27 @@ end
 function JEvade:IsAboutToHit(spell, pos, extra)
 	local evadeSpell = #self.EvadeSpellData > 0 and self.EvadeSpellData[extra or 1] or nil
 	if extra and evadeSpell and evadeSpell.type ~= 2 then return false end
-	local moveSpeed, myPos = self:GetMovementSpeed(extra, evadeSpell), self.MyHeroPos
+	local moveSpeed = self:GetMovementSpeed(extra, evadeSpell)
 	if moveSpeed == MathHuge then return false end
+	local myPos = Point2D(self.MyHeroPos)
 	local diff, pos = GameTimer() - spell.startTime, self:AppendVector(myPos, pos, 99999)
 	if spell.speed ~= MathHuge and spell.type == "linear" or spell.type == "threeway" then
 		if spell.delay > 0 and diff <= spell.delay then
-			myPos = Point2D(myPos):Extended(pos, MathMax(0, spell.delay - diff) * moveSpeed)
+			myPos = Point2D(myPos):Extended(pos, (spell.delay - diff) * moveSpeed)
 			if not self:IsPointInPolygon(spell.path, myPos) then return false end
 		end
 		local va = Point2D(pos - myPos):Normalized() * moveSpeed
 		local vb = Point2D(spell.endPos - spell.position):Normalized() * spell.speed
 		local da, db = Point2D(myPos - spell.position), Point2D(va - vb)
 		local a, b = self:DotProduct(db, db), 2 * self:DotProduct(da, db)
-		local c = self:DotProduct(da, da) - (spell.radius + self.BoundingRadius + 5) ^ 2
+		local c = self:DotProduct(da, da) - (spell.radius + self.BoundingRadius * 2) ^ 2
 		local delta = b * b - 4 * a * c
 		if delta >= 0 then
 			local rtDelta = MathSqrt(delta)
 			local t1, t2 = (-b + rtDelta) / (2 * a), (-b - rtDelta) / (2 * a)
 			return MathMax(t1, t2) >= 0
 		end
+		return false
 	end
 	local t = MathMax(0, spell.range / spell.speed + spell.delay - diff)
 	local fPos = Point2D(myPos):Extended(pos, moveSpeed * t)
