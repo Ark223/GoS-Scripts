@@ -1272,9 +1272,9 @@ function JEvade:__init()
 			return XPolygon:OffsetPolygon(path, self.BoundingRadius), path end,
 		["SettW"] = function(sP, eP, data)
 			local sPos = self:AppendVector(eP, sP, -40)
-			local ePos = Point(sPos):Extended(eP, data.range)
-			local dir = Point(ePos - sPos):Perpendicular():Normalized() * data.radius
-			local s1, s2 = Point(sPos - dir), Point(sPos + dir)
+			local ePos = Point2D(sPos):Extended(eP, data.range)
+			local dir = Point2D(ePos - sPos):Perpendicular():Normalized() * data.radius
+			local s1, s2 = Point2D(sPos - dir), Point2D(sPos + dir)
 			local e1 = self:Rotate(s1, Point2D(s1):Extended(ePos, data.range), -MathRad(30))
 			local e2 = self:Rotate(s2, Point2D(s2):Extended(ePos, data.range), MathRad(30))
 			local path = {s1, e1, e2, s2}
