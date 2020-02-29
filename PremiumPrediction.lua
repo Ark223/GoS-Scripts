@@ -15,7 +15,7 @@ local function ReadFile(file)
 	txt:close(); return result
 end
 
-local Version, IntVer = 1.12, "1.1.2"
+local Version, IntVer = 1.13, "1.1.3"
 local function AutoUpdate()
 	DownloadFile("https://raw.githubusercontent.com/Ark223/GoS-Scripts/master/PremiumPrediction.version", COMMON_PATH .. "PremiumPrediction.version")
 	if tonumber(ReadFile(COMMON_PATH .. "PremiumPrediction.version")) > Version then
@@ -550,7 +550,7 @@ function PremiumPred:IsColliding(source, position, spellData, flags, exclude)
 			if int1 or int2 then return true end
 		end
 	end
-	return false
+	return #result > 0 and result or false
 end
 
 function PremiumPred:IsFacing(source, unit, angle)
