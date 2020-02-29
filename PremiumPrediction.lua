@@ -15,7 +15,7 @@ local function ReadFile(file)
 	txt:close(); return result
 end
 
-local Version, IntVer = 1.11, "1.1.1"
+local Version, IntVer = 1.12, "1.1.2"
 local function AutoUpdate()
 	DownloadFile("https://raw.githubusercontent.com/Ark223/GoS-Scripts/master/PremiumPrediction.version", COMMON_PATH .. "PremiumPrediction.version")
 	if tonumber(ReadFile(COMMON_PATH .. "PremiumPrediction.version")) > Version then
@@ -504,7 +504,7 @@ function PremiumPred:Intersection(a1, b1, a2, b2)
 end
 
 function PremiumPred:IsColliding(source, position, spellData, flags, exclude)
-	local position, result = self:To2D(position), false
+	local position, result = self:To2D(position), {}
 	local sourcePos = IsPoint(source) and self:To2D(source) or self:To2D(source.pos)
 	for i = 1, #flags do
 		local flag = flags[i]
@@ -515,11 +515,11 @@ function PremiumPred:IsColliding(source, position, spellData, flags, exclude)
 					minion.team ~= myHero.team and not minion.dead and minion.maxHealth > 5 then
 					if exclude and minion.networkID ~= exclude.networkID or not exclude then
 						local predPos = self:GetFastPrediction(source, minion, spellData)
-						if predPos then
+						if predPos ~= nil then
 							local predPos = self:To2D(predPos)
 							local point = self:ClosestPointOnSegment(sourcePos, position, predPos)
 							if self:DistanceSquared(predPos, point) <= ((minion.boundingRadius or 45) +
-								spellData.radius + self.PPMenu.CB:Value()) ^ 2 then return true
+								spellData.radius + self.PPMenu.CB:Value()) ^ 2 then TableInsert(result, minion)
 							end
 						end
 					end
@@ -530,11 +530,11 @@ function PremiumPred:IsColliding(source, position, spellData, flags, exclude)
 				if hero.valid and hero.visible and not hero.dead then
 					if exclude and hero.networkID ~= exclude.networkID or not exclude then
 						local predPos = self:GetFastPrediction(source, hero, spellData)
-						if predPos then
+						if predPos ~= nil then
 							local predPos = self:To2D(predPos)
 							local point = self:ClosestPointOnSegment(sourcePos, position, predPos)
 							if self:DistanceSquared(predPos, point) <= ((hero.boundingRadius or 65) +
-								spellData.radius + self.PPMenu.CB:Value()) ^ 2 then return true
+								spellData.radius + self.PPMenu.CB:Value()) ^ 2 then TableInsert(result, hero)
 							end
 						end
 					end
@@ -707,7 +707,8 @@ function PremiumPred:Tick()
 			if data.oldPos ~= last then
 				local pathData = unit.pathing
 				if isMoving then
-					for i = 1, #self.WpCBs do self.WpCBs[i](unit, pathData.startPos, pathData.endPos) end
+					for i = 1, #self.WpCBs do
+						self.WpCBs[i](unit, pathData.startPos, pathData.endPos) end
 					self:OnProcessWaypoint(unit, nid, pathData)
 				else
 					for i = 1, #self.WpCBs do self.WpCBs[i](unit, unit.pos, unit.pos) end
