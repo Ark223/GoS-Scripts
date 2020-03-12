@@ -277,8 +277,8 @@ function PremiumOrb:__init()
 		["Blitzcrank"] = _E, ["Camille"] = _Q, ["Chogath"] = _E, ["Darius"] = _W, ["DrMundo"] = _E, ["Elise"] = _W, ["Fiora"] = _E, ["Garen"] = _Q,
 		["Graves"] = _E, ["Kassadin"] = _W, ["Illaoi"] = _W, ["Jax"] = _W, ["Jayce"] = _W, ["Kayle"] = _E, ["Katarina"] = _E, ["Kindred"] = _Q,
 		["Leona"] = _Q, ["Lucian"] = _E, ["MasterYi"] = _W, ["Mordekaiser"] = _Q, ["Nautilus"] = _W, ["Nidalee"] = _Q, ["Nasus"] = _Q,
-		["RekSai"] = _Q, ["Renekton"] = _W, ["Rengar"] = _Q, ["Riven"] = _Q, ["Sejuani"] = _E, ["Sivir"] = _W, ["Trundle"] = _Q, ["Vayne"] = _Q,
-		["Vi"] = _E, ["Volibear"] = _Q, ["MonkeyKing"] = _Q, ["XinZhao"] = _Q, ["Yorick"] = _Q
+		["RekSai"] = _Q, ["Renekton"] = _W, ["Rengar"] = _Q, ["Riven"] = _Q, ["Sejuani"] = _E, ["Sett"] = _Q, ["Sivir"] = _W, ["Trundle"] = _Q,
+		["Vayne"] = _Q, ["Vi"] = _E, ["Volibear"] = _Q, ["MonkeyKing"] = _Q, ["XinZhao"] = _Q, ["Yorick"] = _Q
 	}
 	self.ShouldWaitToMove = {
 		["Caitlyn"] = function() return self:HasBuff(myHero, {"CaitlynAceintheHole"}) > 0 end,
