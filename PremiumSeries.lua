@@ -11,6 +11,9 @@
 
 	Changelog:
 
+	v1.0.8
+	+ Added Premium Orbwalker support
+
 	v1.0.7
 	+ Added Yasuo (ToDo: KS with E and EQ Flash trick)
 	+ Added custom windwall spell list
@@ -51,7 +54,7 @@
 
 --]]
 
-local GlobalVersion = 1.07
+local GlobalVersion = 1.08
 
 local Champions = {
 	["Cassiopeia"] = function() return Cassiopeia:__init() end,
@@ -1143,11 +1146,15 @@ function Manager:GetMinionsAround(pos, range, type)
 end
 
 function Manager:GetOrbwalkerMode()
-	if not _G.SDK then return nil end
-	return _G.SDK.Orbwalker.Modes[_G.SDK.ORBWALKER_MODE_COMBO] and "Combo"
+	if _G.SDK then
+		return _G.SDK.Orbwalker.Modes[_G.SDK.ORBWALKER_MODE_COMBO] and "Combo"
 		or _G.SDK.Orbwalker.Modes[_G.SDK.ORBWALKER_MODE_HARASS] and "Harass"
-		or _G.SDK.Orbwalker.Modes[_G.SDK.ORBWALKER_MODE_LANECLEAR] and "Clear"
+		or _G.SDK.Orbwalker.Modes[_G.SDK.ORBWALKER_MODE_LANECLEAR] and "LaneClear"
 		or nil
+	elseif _G.PremiumOrbwalker then
+		return _G.PremiumOrbwalker:GetMode()
+	end
+	return nil
 end
 
 function Manager:GetPercentHealth(unit)
@@ -1168,6 +1175,11 @@ end
 
 function Manager:GetSummonerLevel()
 	return myHero.levelData.lvl > 18 and 1 or myHero.levelData.lvl
+end
+
+function Manager:IsAutoAttacking()
+	return _G.SDK and _G.SDK.Orbwalker:IsAutoAttacking() or
+		_G.PremiumOrbwalker and _G.PremiumOrbwalker:IsAutoAttacking() or false
 end
 
 function Manager:IsReady(spell)
@@ -1247,7 +1259,11 @@ function Cassiopeia:__init()
 	self.CassiopeiaMenu.Misc:MenuElement({id = "MinLvl", name = "Minimum Level", value = 6, min = 1, max = 18, step = 1})
 	Callback.Add("Tick", function() self:OnTick() end)
 	Callback.Add("Draw", function() self:OnDraw() end)
-	_G.SDK.Orbwalker:OnPreAttack(function(...) self:OnPreAttack(...) end)
+	if _G.SDK then
+		_G.SDK.Orbwalker:OnPreAttack(function(...) self:OnPreAttack(...) end)
+	elseif _G.PremiumOrbwalker then
+		_G.PremiumOrbwalker:OnPreAttack(function(...) self:OnPreAttack(...) end)
+	end
 end
 
 -- Methods
@@ -1281,7 +1297,9 @@ function Cassiopeia:PoisonDuration(unit)
 end
 
 function Cassiopeia:PredictHealth(unit, mod)
-	return _G.SDK.HealthPrediction:GetPrediction(unit, self:CalcFangArrivalTime(unit) * (mod or 1))
+	local t = self:CalcFangArrivalTime(unit) * (mod or 1)
+	return _G.SDK and _G.SDK.HealthPrediction:GetPrediction(unit, t) or
+		_G.PremiumOrbwalker and _G.PremiumOrbwalker:GetHealthPrediction(unit, t) or unit.health
 end
 
 -- Events
@@ -1289,7 +1307,7 @@ end
 function Cassiopeia:OnPreAttack(args)
 	local mode = self.CassiopeiaMenu.Misc.ModeAA:Value()
 	local timer = GameTimer()
-	local disable = Manager:GetOrbwalkerMode() ~= "Clear"
+	local disable = Manager:GetOrbwalkerMode() ~= "LaneClear"
 		and (mode == 1 or
 		(mode == 2 and Manager:IsReady(_E)) or
 		(mode == 3 and Manager:GetSummonerLevel() >
@@ -1304,11 +1322,11 @@ end
 
 function Cassiopeia:OnTick()
 	self.MyPos = Geometry:To2D(myHero.pos)
-	if _G.JustEvade and _G.JustEvade:Evading() or (_G.ExtLibEvade and _G.ExtLibEvade.Evading) or
-		_G.SDK.Orbwalker:IsAutoAttacking() or Game.IsChatOpen() or myHero.dead then return end
+	if _G.JustEvade and _G.JustEvade:Evading() or (_G.ExtLibEvade and _G.ExtLibEvade.Evading)
+		or Manager:IsAutoAttacking() or Game.IsChatOpen() or myHero.dead then return end
 	self:AutoAttackHandler(self.CassiopeiaMenu.Misc.ModeAA:Value())
 	local mode = Manager:GetOrbwalkerMode()
-	if mode == "Clear" then self:Clear(); return end
+	if mode == "LaneClear" then self:Clear(); return end
 	local tQ, tW, tE = self:GetTarget(self.Q.range), self:GetTarget(self.W.range), self:GetTarget(self.E.range)
 	if mode == "Combo" then self:Combo(tQ, tW, tE, self:GetTarget(self.R.range))
 	elseif mode == "Harass" then self:Harass(tQ, tW, tE) end
@@ -1500,8 +1518,13 @@ function Vayne:__init()
 	self.VayneMenu.Misc:MenuElement({id = "PushE", name = "E: Max Distance", value = 450, min = 100, max = 475, step = 5})
 	Callback.Add("Tick", function() self:OnTick() end)
 	Callback.Add("Draw", function() self:OnDraw() end)
-	_G.SDK.Orbwalker:OnPreAttack(function(...) self:OnPreAttack(...) end)
-	_G.SDK.Orbwalker:OnPostAttackTick(function(...) self:OnPostAttackTick(...) end)
+	if _G.SDK then
+		_G.SDK.Orbwalker:OnPreAttack(function(...) self:OnPreAttack(...) end)
+		_G.SDK.Orbwalker:OnPostAttackTick(function(...) self:OnPostAttack(...) end)
+	elseif _G.PremiumOrbwalker then
+		_G.PremiumOrbwalker:OnPreAttack(function(...) self:OnPreAttack(...) end)
+		_G.PremiumOrbwalker:OnPostAttack(function() self:OnPostAttack() end)
+	end
 end
 
 -- Methods
@@ -1622,7 +1645,7 @@ function Vayne:UseE()
 				rawDmg, self:CalcCondemnArrivalTime(unit, self.MyPos))
 			killSteal = unit.health < dmg
 		end
-		if not _G.SDK.Orbwalker:IsAutoAttacking() and (self:IsAbleToStun(unit) and
+		if not Manager:IsAutoAttacking() and (self:IsAbleToStun(unit) and
 			((mode == "Combo" and self.VayneMenu.Combo.UseE:Value()) or (mode == "Harass" and
 				self.VayneMenu.Harass.UseE:Value()) or self.VayneMenu.Auto.UseE:Value())) or killSteal then
 					self.QueueTimer = GameTimer()
@@ -1638,12 +1661,13 @@ function Vayne:OnPreAttack(args)
 		and self.VayneMenu.Misc.BlockAA:Value() then
 			args.Process = false; return
 	end
-	local target = self:GetTarget(myHero.range + (myHero.boundingRadius or 65) + 65)
+	local target = self:GetTarget(myHero.range +
+		(myHero.boundingRadius or 65) + 65)
 	if target == nil then return end;
 	self.Target, args.Target = target, target
 end
 
-function Vayne:OnPostAttackTick(args)
+function Vayne:OnPostAttack()
 	local mode = Manager:GetOrbwalkerMode()
 	if (mode == "Combo" and self.VayneMenu.Combo.UseQ:Value()
 		or mode == "Harass" and self.VayneMenu.Harass.UseQ:Value()) then
@@ -1730,7 +1754,11 @@ function Viktor:__init()
 	end
 	Callback.Add("Tick", function() self:OnTick() end)
 	Callback.Add("Draw", function() self:OnDraw() end)
-	_G.SDK.Orbwalker:OnPreAttack(function(...) self:OnPreAttack(...) end)
+	if _G.SDK then
+		_G.SDK.Orbwalker:OnPreAttack(function(...) self:OnPreAttack(...) end)
+	elseif _G.PremiumOrbwalker then
+		_G.PremiumOrbwalker:OnPreAttack(function(...) self:OnPreAttack(...) end)
+	end
 end
 
 -- Methods
@@ -1800,8 +1828,8 @@ end
 
 function Viktor:OnTick()
 	self.MyPos = Geometry:To2D(myHero.pos)
-	if _G.JustEvade and _G.JustEvade:Evading() or (_G.ExtLibEvade and _G.ExtLibEvade.Evading) or
-		_G.SDK.Orbwalker:IsAutoAttacking() or Game.IsChatOpen() or myHero.dead then return end
+	if _G.JustEvade and _G.JustEvade:Evading() or (_G.ExtLibEvade and _G.ExtLibEvade.Evading)
+		or Manager:IsAutoAttacking() or Game.IsChatOpen() or myHero.dead then return end
 	if ControlIsKeyDown(HK_E) then
 		if self.EndPos then
 			ControlSetCursorPos(self.EndPos)
@@ -1820,7 +1848,7 @@ function Viktor:OnTick()
 	end
 	if self.Ignite then self:Auto() end
 	local mode = Manager:GetOrbwalkerMode()
-	if mode == "Clear" then self:Clear(); return end
+	if mode == "LaneClear" then self:Clear(); return end
 	if Manager:IsReady(_E) and ((mode == "Combo" and self.ViktorMenu.Combo.UseE:Value()) or
 		(mode == "Harass" and self.ViktorMenu.Harass.UseE:Value())) then
 			self:GetBestLaserCastPos()
@@ -1988,8 +2016,13 @@ function Xerath:__init()
 	self.XerathMenu.HitChance:MenuElement({id = "HCR", name = "R: HitChance", value = 40, min = 0, max = 100, step = 5})
 	Callback.Add("Tick", function() self:OnTick() end)
 	Callback.Add("Draw", function() self:OnDraw() end)
-	_G.SDK.Orbwalker:OnPreAttack(function(...) self:OnPreAttack(...) end)
-	_G.SDK.Orbwalker:OnPreMovement(function(...) self:OnPreMovement(...) end)
+	if _G.SDK then
+		_G.SDK.Orbwalker:OnPreAttack(function(...) self:OnPreAttack(...) end)
+		_G.SDK.Orbwalker:OnPreMovement(function(...) self:OnPreMovement(...) end)
+	elseif _G.PremiumOrbwalker then
+		_G.PremiumOrbwalker:OnPreAttack(function(...) self:OnPreAttack(...) end)
+		_G.PremiumOrbwalker:OnPreMovement(function(...) self:OnPreMovement(...) end)
+	end
 end
 
 -- Methods
@@ -2011,8 +2044,9 @@ end
 function Xerath:IsChargingArcanopulse()
 	for i = 0, myHero.buffCount do
 		local buff = myHero:GetBuff(i)
-		if buff and buff.count > 0 and buff.name == "XerathArcanopulseChargeUp" then
-			return true
+		if buff and buff.count > 0 and
+			buff.name == "XerathArcanopulseChargeUp" then
+				return true
 		end
 	end
 	return false
@@ -2021,8 +2055,9 @@ end
 function Xerath:IsArcaneActive()
 	for i = 0, myHero.buffCount do
 		local buff = myHero:GetBuff(i)
-		if buff and buff.count > 0 and buff.name == "XerathLocusOfPower2" then
-			return true
+		if buff and buff.count > 0 and
+			buff.name == "XerathLocusOfPower2" then
+				return true
 		end
 	end
 	return false
@@ -2074,8 +2109,8 @@ function Xerath:OnTick()
 	if self.LastPos and myHero:GetSpellData(_Q).currentCd > 0 then
 		self.LastPos, self.LastDirection = nil, nil
 	end
-	if _G.JustEvade and _G.JustEvade:Evading() or (_G.ExtLibEvade and _G.ExtLibEvade.Evading) or
-		_G.SDK.Orbwalker:IsAutoAttacking() or Game.IsChatOpen() or myHero.dead then return end
+	if _G.JustEvade and _G.JustEvade:Evading() or (_G.ExtLibEvade and _G.ExtLibEvade.Evading)
+		or Manager:IsAutoAttacking() or Game.IsChatOpen() or myHero.dead then return end
 	local charging = self:IsChargingArcanopulse()
 	if not self.ActiveQ and charging then
 		self.InitChargeTimer, self.ActiveQ = GameTimer(), true
@@ -2097,7 +2132,7 @@ function Xerath:OnTick()
 		end, 0.3)
 	end
 	local mode = Manager:GetOrbwalkerMode()
-	if mode == "Clear" then self:Clear(); return end
+	if mode == "LaneClear" then self:Clear(); return end
 	local tQ, tWE = self:GetTarget(self.Q.range), self:GetTarget(self.W.range)
 	if mode == "Combo" or mode == "Harass" then self:Action(mode, tQ, tWE) end
 end
@@ -2312,8 +2347,13 @@ function Yasuo:__init()
 	end, 0.07)
 	Callback.Add("Tick", function() self:OnTick() end)
 	Callback.Add("Draw", function() self:OnDraw() end)
-	_G.SDK.Orbwalker:OnPreAttack(function(...) self:OnPreAttack(...) end)
-	_G.SDK.Orbwalker:OnPreMovement(function(...) self:OnPreMovement(...) end)
+	if _G.SDK then
+		_G.SDK.Orbwalker:OnPreAttack(function(...) self:OnPreAttack(...) end)
+		_G.SDK.Orbwalker:OnPreMovement(function(...) self:OnPreMovement(...) end)
+	elseif _G.PremiumOrbwalker then
+		_G.PremiumOrbwalker:OnPreAttack(function(...) self:OnPreAttack(...) end)
+		_G.PremiumOrbwalker:OnPreMovement(function(...) self:OnPreMovement(...) end)
+	end
 	_G.PremiumPrediction:OnProcessSpell(function(...) self:OnProcessSpell(...) end)
 end
 
@@ -2329,15 +2369,25 @@ end
 
 function Yasuo:CustomCastSpell(spell, pos, windup)
 	local mPos = mousePos
-	_G.SDK.Orbwalker:SetAttack(false)
-	_G.SDK.Orbwalker:SetMovement(false)
+	if _G.SDK then
+		_G.SDK.Orbwalker:SetAttack(false)
+		_G.SDK.Orbwalker:SetMovement(false)
+	elseif _G.PremiumOrbwalker then
+		_G.PremiumOrbwalker:SetAttack(false)
+		_G.PremiumOrbwalker:SetMovement(false)
+	end
 	DelayAction(function()
 		_G.Control.SetCursorPos(Geometry:To3D(pos))
 		ControlKeyDown(spell); ControlKeyUp(spell)
 		DelayAction(function()
 			_G.Control.SetCursorPos(mPos)
-			_G.SDK.Orbwalker:SetAttack(true)
-			_G.SDK.Orbwalker:SetMovement(true)
+			if _G.SDK then
+				_G.SDK.Orbwalker:SetAttack(true)
+				_G.SDK.Orbwalker:SetMovement(true)
+			elseif _G.PremiumOrbwalker then
+				_G.PremiumOrbwalker:SetAttack(true)
+				_G.PremiumOrbwalker:SetMovement(true)
+			end
 		end, windup)
 	end, 0.01)
 end
@@ -2395,7 +2445,9 @@ function Yasuo:KnockupDuration(unit)
 end
 
 function Yasuo:PredictHealth(unit)
-	return _G.SDK.HealthPrediction:GetPrediction(unit, self:CalcSweepArrivalTime(unit))
+	local t = self:CalcSweepArrivalTime(unit)
+	return _G.SDK and _G.SDK.HealthPrediction:GetPrediction(unit, t) or
+		_G.PremiumOrbwalker and _G.PremiumOrbwalker:GetHealthPrediction(unit, t) or unit.health
 end
 
 -- Events
@@ -2435,12 +2487,12 @@ end
 
 function Yasuo:OnTick()
 	self.MyPos, self.MousePos = Geometry:To2D(myHero.pos), Geometry:To2D(mousePos)
-	if _G.JustEvade and _G.JustEvade:Evading() or (_G.ExtLibEvade and _G.ExtLibEvade.Evading) or
-		_G.SDK.Orbwalker:IsAutoAttacking() or Game.IsChatOpen() or myHero.dead then return end
+	if _G.JustEvade and _G.JustEvade:Evading() or (_G.ExtLibEvade and _G.ExtLibEvade.Evading)
+		or Manager:IsAutoAttacking() or Game.IsChatOpen() or myHero.dead then return end
 	self:Auto()
 	self.Q.delay = myHero.attackData.windup or 0.339
 	local mode = Manager:GetOrbwalkerMode()
-	if mode == "Clear" then self:Clear(); return end
+	if mode == "LaneClear" then self:Clear(); return end
 	local tQ, tE = self:HasQ3() and self:GetTarget(self.Q3.range) or
 		self:GetTarget(self.Q.range), self:GetTarget(self.R.range)
 	if mode == "Combo" then self:Combo(tQ, tE)
