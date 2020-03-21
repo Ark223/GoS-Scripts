@@ -9,6 +9,29 @@
 
 --]]
 
+local function DownloadFile(site, file)
+	DownloadFileAsync(site, file, function() end)
+	local timer = os.clock()
+	while os.clock() < timer + 1 do end
+	while not FileExist(file) do end
+end
+
+local function ReadFile(file)
+	local txt = io.open(file, "r")
+	local result = txt:read()
+	txt:close(); return result
+end
+
+local Version = 1.0
+local function AutoUpdate()
+	DownloadFile("https://raw.githubusercontent.com/Ark223/GoS-Scripts/master/PremiumOrbwalkerWIP.version", SCRIPT_PATH .. "PremiumOrbwalkerWIP.version")
+	if tonumber(ReadFile(SCRIPT_PATH .. "PremiumOrbwalkerWIP.version")) > Version then
+		print("PremiumOrbwalkerWIP: Found update! Downloading...")
+		DownloadFile("https://raw.githubusercontent.com/Ark223/GoS-Scripts/master/PremiumOrbwalkerWIP.lua", SCRIPT_PATH .. "PremiumOrbwalkerWIP.lua")
+		print("PremiumOrbwalkerWIP: Successfully updated. Use 2x F6!")
+	end
+end
+
 local MathAbs, MathAtan, MathAtan2, MathAcos, MathCeil, MathCos, MathDeg, MathFloor, MathHuge, MathMax, MathMin, MathPi, MathRad, MathRandom, MathSin, MathSqrt = math.abs, math.atan, math.atan2, math.acos, math.ceil, math.cos, math.deg, math.floor, math.huge, math.max, math.min, math.pi, math.rad, math.random, math.sin, math.sqrt
 local GameCanUseSpell, GameIsChatOpen, GameTimer, GameHeroCount, GameHero, GameMinionCount, GameMinion, GameTurretCount, GameTurret = Game.CanUseSpell, Game.IsChatOpen, Game.Timer, Game.HeroCount, Game.Hero, Game.MinionCount, Game.Minion, Game.TurretCount, Game.Turret
 local ControlIsKeyDown, ControlKeyDown, ControlKeyUp, ControlMouseEvent, ControlSetCursorPos, DrawCircle, DrawLine = Control.IsKeyDown, Control.KeyDown, Control.KeyUp, Control.mouse_event, Control.SetCursorPos, Draw.Circle, Draw.Line
@@ -353,13 +376,6 @@ function PremiumOrb:GetAttackSpeed()
 	return MathMin(myHero.attackSpeed, 2.5)
 end
 
-function PremiumOrb:GetAutoAttackDamage(source, target)
-	local name = source.charName
-	return self:CalcPhysicalDamage(source, target, source.totalDamage) +
-		(source.type == Obj_AI_Hero and self.BonusDamage[name] ~=
-			nil and self.BonusDamage[name](target) or 0)
-end
-
 function PremiumOrb:GetAutoAttackRange(unit)
 	local range = myHero.range + (myHero.boundingRadius or 65)
 	if unit and self:IsValid(unit) then
@@ -375,6 +391,18 @@ function PremiumOrb:GetAutoAttackRange(unit)
 	return range + 35
 end
 
+function PremiumOrb:GetAutoAttackDamage(source, target, mod)
+	local raw, name, total = self:CalcPhysicalDamage(
+		source, target, source.totalDamage), source.charName, 0
+	for i = 1, (mod or 1) do
+		if i == 1 then total = source.type == Obj_AI_Hero
+			and self.BonusDamage[name] ~= nil and
+			self.BonusDamage[name](target) or 0 end
+		total = total + raw
+	end
+	return total
+end
+
 function PremiumOrb:GetLatency()
 	return self.PremiumOrbMenu.Misc.Ping:Value() / 2000
 end
@@ -383,8 +411,9 @@ function PremiumOrb:GetHealthPrediction(unit, delta)
 	local predHealth, timer = unit.health + unit.shieldAD, GameTimer()
 	for i, attack in pairs(self.ActiveAttacks) do
 		if attack and self:IsValid(attack.source) and attack.target == unit.handle then
-			local arrival = attack.startTime + attack.windUpTime + self:Distance(
-				unit.pos, attack.source.pos) / attack.projectileSpeed + 0.07
+			local arrival = attack.startTime + attack.windUpTime +
+				MathMax(0, self:Distance(unit.pos, attack.source.pos) -
+					attack.source.boundingRadius) / attack.projectileSpeed + 0.07
 			if timer < arrival - 0.07 and arrival < timer + delta then
 				predHealth = predHealth - self:GetAutoAttackDamage(attack.source, unit)
 			end
@@ -401,13 +430,14 @@ function PremiumOrb:GetLaneClearHealthPrediction(unit, delta)
 			if timer <= attack.startTime + attack.animationTime + 0.1 then
 				local from, to = attack.startTime, timer + delta
 				while from < to do
-					if timer <= from and from + attack.windUpTime + self:Distance(unit.pos,
-						attack.source.pos) / attack.projectileSpeed < to then count = count + 1
+					if timer <= from and from + attack.windUpTime + MathMax(0, self:Distance(
+						unit.pos, attack.source.pos) - attack.source.boundingRadius) /
+							attack.projectileSpeed < to then count = count + 1
 					end
 					from = from + attack.animationTime
 				end
 			end
-			predHealth = predHealth - self:GetAutoAttackDamage(attack.source, unit) * count
+			predHealth = predHealth - self:GetAutoAttackDamage(attack.source, unit, count)
 		end
 	end
 	return predHealth
@@ -449,7 +479,9 @@ function PremiumOrb:IsAttackEnabled()
 end
 
 function PremiumOrb:IsAutoAttacking()
-	return GameTimer() <= self.LastCastEnd
+	local timer = GameTimer()
+	return timer - self.AttackTimer < 0.15
+		or timer <= self.LastCastEnd
 end
 
 function PremiumOrb:IsMovementEnabled()
@@ -513,7 +545,8 @@ function PremiumOrb:GetTarget(range, mode)
 		local speed = self:GetProjectileSpeed(myHero)
 		for i, minion in ipairs(self.Minions) do
 			local t = self:GetWindUpTime() + self:GetLatency() -
-				self:Distance(myHero.pos, minion.pos) / speed - 0.07
+				MathMax(0, self:Distance(myHero.pos, minion.pos) -
+					myHero.boundingRadius) / speed - 0.07
 			local predHealth = self:GetHealthPrediction(minion, t)
 			if predHealth <= 0 then for i = 1, #self.OnUnkillable do self.OnUnkillable[i](minion) end end
 			if predHealth <= self:GetAutoAttackDamage(myHero, minion) then return minion end
@@ -539,7 +572,7 @@ function PremiumOrb:ShouldWait()
 	for i, minion in ipairs(self.Minions) do
 		local pred = self:GetLaneClearHealthPrediction(minion, t)
 		if minion.health ~= pred and pred <=
-			self:GetAutoAttackDamage(myHero, minion) * 2 then
+			self:GetAutoAttackDamage(myHero, minion, 2) then
 				self.WaitTimer = GameTimer(); break
 		end
 	end
@@ -671,3 +704,4 @@ _G.PremiumOrbwalker = {
 	OnUnkillableMinion = function(self, func) return PremiumOrb:OnUnkillableMinion(func) end
 }
 
+AutoUpdate()
