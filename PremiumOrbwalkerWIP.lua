@@ -216,14 +216,14 @@ function PremiumOrb:__init()
 				and self:CalcMagicalDamage(myHero, unit, 40 + 25 *
 				myHero:GetSpellData(_E).level + (0.5 * myHero.ap)) or 0
 			if self:HasBuff(myHero, {"BlueCardPreAttack"}) > 0 then
-				return dmg + self:CalcMagicalDamage(myHero, unit, 20 *
-				20 + myHero:GetSpellData(_Q).level + (0.5 * myHero.ap))
+				return dmg + self:CalcMagicalDamage(myHero, unit, 20 +
+				20 * myHero:GetSpellData(_Q).level + (0.5 * myHero.ap))
 			elseif self:HasBuff(myHero, {"GoldCardPreAttack"}) > 0 then
-				return dmg + self:CalcMagicalDamage(myHero, unit, 7.5 *
-				7.5 + myHero:GetSpellData(_Q).level + (0.5 * myHero.ap))
+				return dmg + self:CalcMagicalDamage(myHero, unit, 7.5 +
+				7.5 * myHero:GetSpellData(_Q).level + (0.5 * myHero.ap))
 			elseif self:HasBuff(myHero, {"RedCardPreAttack"}) > 0 then
-				return dmg + self:CalcMagicalDamage(myHero, unit, 15 *
-				15 + myHero:GetSpellData(_Q).level + (0.5 * myHero.ap))
+				return dmg + self:CalcMagicalDamage(myHero, unit, 15 +
+				15 * myHero:GetSpellData(_Q).level + (0.5 * myHero.ap))
 			end
 			return dmg
 		end,
