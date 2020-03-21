@@ -364,7 +364,7 @@ function PremiumOrb:GetAutoAttackRange(unit)
 	local range = myHero.range + (myHero.boundingRadius or 65)
 	if unit and self:IsValid(unit) then
 		if myHero.charName == "Aphelios" and self:HasBuff(unit,
-			{"aphelioscalibrumbonusrangedebuff"}) > 0 then return MathHuge
+			{"aphelioscalibrumbonusrangedebuff"}) > 0 then return 1800
 		elseif myHero.charName == "Caitlyn" and
 			self:HasBuff(myHero, {"caitlynyordletrapinternal"}) > 0 then
 				range = range + 650
