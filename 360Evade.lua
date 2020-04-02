@@ -598,6 +598,7 @@ function Evade:CreateNewSpell(data)
 		Angle = data.Angle or 0,
 		Type = data.Type
 	})
+	self.EvadeTimer = 0
 end
 -----------------------------------------------------------------------------------------------
 
