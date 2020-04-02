@@ -1,14 +1,14 @@
 
 --[[
 
-	 ad888888b,   ad8888ba,    ,a8888a,    88888888888                             88           
-	d8"     "88  8P'    "Y8  ,8P"'  `"Y8,  88                                      88           
-			a8P d8          ,8P        Y8, 88                                      88           
-		 aad8"  88,dd888bb, 88          88 88aaaaa 8b       d8 ,adPPYYba,  ,adPPYb,88  ,adPPYba,
-		 ""Y8,  88P'    `8b 88          88 88""""" `8b     d8' ""     `Y8 a8"    `Y88 a8P_____88
-			"8b 88       d8 `8b        d8' 88       `8b   d8'  ,adPPPPP88 8b       88 8PP"""""""
-	Y8,     a88 88a     a8P  `8ba,  ,ad8'  88        `8b,d8'   88,    ,88 "8a,   ,d88 "8b,   ,aa
-	 "Y888888P'  "Y88888P"     "Y8888P"    88888888888 "8"     `"8bbdP"Y8  `"8bbdP"Y8  `"Ybbd8"'
+     ad888888b,   ad8888ba,    ,a8888a,    88888888888                             88           
+    d8"     "88  8P'    "Y8  ,8P"'  `"Y8,  88                                      88           
+            a8P d8          ,8P        Y8, 88                                      88           
+         aad8"  88,dd888bb, 88          88 88aaaaa 8b       d8 ,adPPYYba,  ,adPPYb,88  ,adPPYba,
+         ""Y8,  88P'    `8b 88          88 88""""" `8b     d8' ""     `Y8 a8"    `Y88 a8P_____88
+            "8b 88       d8 `8b        d8' 88       `8b   d8'  ,adPPPPP88 8b       88 8PP"""""""
+    Y8,     a88 88a     a8P  `8ba,  ,ad8'  88        `8b,d8'   88,    ,88 "8a,   ,d88 "8b,   ,aa
+     "Y888888P'  "Y88888P"     "Y8888P"    88888888888 "8"     `"8bbdP"Y8  `"8bbdP"Y8  `"Ybbd8"'
 
 --]]
 
@@ -702,7 +702,8 @@ function Evade:OnProcessSpell(unit, spell)
 		if data.Exception then return end
 		data.StartPos = Point2D(spell.startPos)
 		data.EndPos = Point2D(spell.placementPos)
-		data.EndPos = self:FixEndPosition(data)
+		data.EndPos = not data.InternalFix and self:FixEndPosition(data)
+			or Point2D(unit.pos) + Point2D(unit.dir) * data.Range
 		data.Range = data.StartPos:Distance(data.EndPos)
 		data.Name = name; self:CreateNewSpell(data, unit)
 	end
