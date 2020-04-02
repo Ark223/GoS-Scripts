@@ -29,8 +29,13 @@ end
 local Point2D = Class()
 
 function Point2D:__init(x, y)
-	if y == nil then self.x, self.y = x.x, x.z or x.y
-	else self.x, self.y = x or 0, y or 0 end
+	if x and y then
+		self.x, self.y = x, y
+	elseif x and not y then
+		self.x, self.y = x.x, x.z or x.y
+	else
+		self.x, self.y = 0, 0
+	end
 end
 
 function Point2D:__type()
@@ -83,6 +88,10 @@ function Point2D:DistanceSquared(p)
 end
 
 function Point2D:Distance(p)
+	if not p then
+		local dInfo = debug.getinfo(2)
+		print(dInfo.name .. "  Line: " .. dInfo.linedefined)
+	end
 	return math.sqrt(self:DistanceSquared(p))
 end
 
@@ -128,13 +137,11 @@ end
 
 local SpellDatabase = {
 	["Ryze"] = {
-		[0] = {
-			OriginalName = "瑞茲",
-			DisplayName = "Overload|超负荷",
-			MenuName = "RyzeQ",
-			SpellName = "RyzeQ",
+		["RyzeQ"] = {
+			DisplayName = "Overload",
 			MissileName = "RyzeQ",
 			Type = "Linear",
+			Slot = "Q",
 			Speed = 1700,
 			Range = 1000,
 			Delay = 0.25,
@@ -181,32 +188,31 @@ local Evade = Class()
 --]]
 
 function Evade:__init()
-	self.Enemies, self.Evading, self.MyHeroPos, self.SafePos, self.BoundingRadius,
-		self.EvadeTimer, self.Height, self.Quality = {}, false, nil, nil, 0, 0, 0, 16
-	self.SlotToSpell = {[0] = "Q", [1] = "W", [2] = "E", [3] = "R"}
+	self.Enemies, self.Spells, self.Evading, self.MyHeroPos, self.SafePos, self.BoundingRadius,
+		self.EvadeTimer, self.Height, self.Quality = {}, {}, false, nil, nil, 0, 0, 0, 16
 	self.IconSite = "https://raw.githubusercontent.com/Ark223/LoL-Icons/master/"
 	self.MenuIcon = "https://www.edgecumbe.co.uk/wp-content/uploads/360-Feedback.png"
-	self.EvadeMenu = MenuElement({type = MENU, id = "360Evade", name = "360躲避", leftIcon = self.MenuIcon})
-	self.EvadeMenu:MenuElement({id = "Core", name = "核心設定", type = MENU})
-	self.EvadeMenu.Core:MenuElement({id = "Ping", name = "平均延迟", value = 50, min = 0, max = 250, step = 5})
-	self.EvadeMenu.Core:MenuElement({id = "Quality", name = "分割質量", value = 16, min = 10, max = 25, step = 1})
-	self.EvadeMenu:MenuElement({id = "Main", name = "主要设定", type = MENU})
-	self.EvadeMenu.Main:MenuElement({id = "Dodge", name = "技能躲避", value = true})
-	self.EvadeMenu.Main:MenuElement({id = "Draw", name = "技能图画", value = true})
-	self.EvadeMenu.Main:MenuElement({id = "MisDet", name = "導彈探測", value = true})
-	self.EvadeMenu:MenuElement({id = "Spells", name = "技能設定", type = MENU})
-	--self.EvadeMenu.Spells:MenuElement({id = "Avoidable", name = "可躲避的技能:", type = SPACE}) --我正在盡力
+	self.EvadeMenu = MenuElement({type = MENU, id = "360Evade", name = "360Evade", leftIcon = self.MenuIcon})
+	self.EvadeMenu:MenuElement({id = "Core", name = "Core Settings", type = MENU})
+	self.EvadeMenu.Core:MenuElement({id = "Ping", name = "Average Game Ping", value = 50, min = 0, max = 250, step = 5})
+	self.EvadeMenu.Core:MenuElement({id = "Quality", name = "Segmentation Quality", value = 16, min = 10, max = 25, step = 1})
+	self.EvadeMenu:MenuElement({id = "Main", name = "Main Settings", type = MENU})
+	self.EvadeMenu.Main:MenuElement({id = "Dodge", name = "Dodge Spells", value = true})
+	self.EvadeMenu.Main:MenuElement({id = "Draw", name = "Draw Spells", value = true})
+	self.EvadeMenu.Main:MenuElement({id = "MisDet", name = "Detect Missiles", value = true})
+	self.EvadeMenu:MenuElement({id = "Spells", name = "Spell Settings", type = MENU})
+	--self.EvadeMenu.Spells:MenuElement({id = "Avoidable", name = "Dodgeable:", type = SPACE})
 	self:LoadEnemyHeroData()
 	for i, data in ipairs(self.Enemies) do
 		if SpellDatabase[data.Enemy.charName] then
-			for j, spell in ipairs(SpellDatabase[data.Enemy.charName]) do
-				self.EvadeMenu.Spells:MenuElement({id = spell.MenuName, name = spell.OriginalName .. "[" .. self.SlotToSpell .. "] (" ..
-					spell.DisplayName:gmatch("([^|]+)")[2] .. ")", leftIcon = self.IconSite .. spell.MenuName .. ".png", type = MENU})
-				self.EvadeMenu.Spells[spell.MenuName]:MenuElement({id = "Dodge" .. spell.MenuName, name = "躲避", value = true})
-				self.EvadeMenu.Spells[spell.MenuName]:MenuElement({id = "Draw" .. spell.MenuName, name = "图画", value = true})
-				self.EvadeMenu.Spells[spell.MenuName]:MenuElement({id = "Dangerous" .. spell.MenuName, name = "危險的", value = true})
-				self.EvadeMenu.Spells[spell.MenuName]:MenuElement({id = "Danger" .. spell.MenuName,
-					name = "危險等級", value = (spell.DangerLevel or 1), min = 1, max = 5, step = 1})
+			for j, spell in pairs(SpellDatabase[data.Enemy.charName]) do
+				self.EvadeMenu.Spells:MenuElement({id = j, name = data.Enemy.charName .. " [" .. spell.Slot
+					.. "] (" .. spell.DisplayName .. ")", leftIcon = self.IconSite .. j .. ".png", type = MENU})
+				self.EvadeMenu.Spells[j]:MenuElement({id = "Dodge" .. j, name = "Dodge", value = true})
+				self.EvadeMenu.Spells[j]:MenuElement({id = "Draw" .. j, name = "Draw", value = true})
+				self.EvadeMenu.Spells[j]:MenuElement({id = "Dangerous" .. j, name = "Dangerous", value = true})
+				self.EvadeMenu.Spells[j]:MenuElement({id = "Danger" .. j,
+					name = "Danger Level", value = (spell.DangerLevel or 1), min = 1, max = 5, step = 1})
 			end
 		end
 	end
@@ -278,7 +284,7 @@ end
 -----------------------------------------------------------------------------------------------
 
 function Evade:ClosestPointOnSegment(pt, s1, s2)
-	local ap, ab = Point(pt - s1), Point2D(s2 - s1)
+	local ap, ab = Point2D(pt - s1), Point2D(s2 - s1)
 	local t = self:DotProduct(ap, ab) / ab:LengthSquared()
 	return t < 0 and s1 or t > 1 and s2 or Point2D(s1 + ab * t)
 end
@@ -320,13 +326,13 @@ function Evade:DotProduct(p1, p2)
 end
 -----------------------------------------------------------------------------------------------
 
-function Evade:DrawPolygon(poly, color)
+function Evade:DrawPolygon(poly, width, color)
 	local size = #poly
 	if size < 3 then return end
 	local j = size
 	for i = 1, size do
 		Draw.Line(poly[i].x, poly[i].y,
-			poly[j].x, poly[j].y, 0.5, color)
+			poly[j].x, poly[j].y, width, color)
 		j = i
 	end
 end
@@ -393,8 +399,7 @@ function Evade:Intersection(s1, s2, c1, c2, line)
 	local a, b, c = Point2D(s2 - s1), Point2D(c2 - c1), Point2D(s1 - c1)
 	local d = self:CrossProduct(b, a); if d == 0 then return nil end
 	local t1, t2 = self:CrossProduct(b, c) / d, self:CrossProduct(a, c) / d
-	return (t1 > 0 and t1 < 1 and t2 > 0 and t2 < 1 or
-		line ~= nil) and Point2D(s1 + a * t1) or nil
+	return (t1 > 0 and t1 < 1 and t2 > 0 and t2 < 1 or line) and Point2D(s1 + a * t1) or nil
 end
 -----------------------------------------------------------------------------------------------
 
@@ -436,8 +441,8 @@ end
 function Evade:IsSafePath(destination)
 	local moveSpeed, safe = myHero.ms or 315, {}
 	for i, spell in ipairs(self.Spells) do
-		local ints = PathIntersection({self.MyHeroPos,
-			destination}, spell.OffsetPath)
+		local ints = self:PathIntersection({
+			self.MyHeroPos, destination}, spell.OffsetPath)
 		local size = #ints
 		if size == 0 then
 			table.insert(safe, destination)
@@ -445,10 +450,10 @@ function Evade:IsSafePath(destination)
 		local int = ints[size]
 		if size > 1 and self.MyHeroPos:DistanceSquared(ints[1]) >
 			self.MyHeroPos:DistanceSquared(int) then int = ints[1] end
-		local dist = self.MyHeroPos:Distance(intersection)
+		local dist = self.MyHeroPos:Distance(int)
 		if spell.Speed ~= math.huge and spell.Type == "Linear" then
 			local pos = self:CalculateDynamicPosition(spell, dist / moveSpeed)
-			if spell.StartPos ~= pos and intersection:Distance(closest) <=
+			if spell.StartPos ~= pos and int:Distance(closest) <=
 				self.BoundingRadius + spell.Radius + 1 then return false, nil
 			end
 		else
@@ -474,6 +479,8 @@ end
 -----------------------------------------------------------------------------------------------
 
 function Evade:OffsetPath(path, delta)
+	local path = self:CopyTable(path)
+	local delta = delta or self.BoundingRadius
 	local steps = math.sqrt(delta) / math.pi * 2
 	if self:Orientation(path) then self:ReversePath(path) end
 	local result, j, k = {}, #path, #path - 1
@@ -498,6 +505,7 @@ function Evade:OffsetPath(path, delta)
 				table.insert(result, ex:Rotate(math.rad(i), int))
 			end
 		end
+		table.insert(result, int)
 		k = j; j = i
 	end
 	return result
@@ -510,7 +518,7 @@ end
 -----------------------------------------------------------------------------------------------
 
 function Evade:PathIntersection(path1, path2)
-	local result, j = {}, #poly
+	local result, j = {}, #path2
 	for i = 1, #path2 do
 		local a, b = path2[i], path2[j]
 		local int = self:Intersection(path1[1], path1[2], a, b)
@@ -560,7 +568,7 @@ end
 function Evade:CreateNewSpell(data)
 	local path = data.Path or self:GetPath(data)
 	table.insert(self.Spells, {
-		MenuName = data.MenuName,
+		Name = data.Name,
 		StartTime = Game.Timer() - self:Latency(),
 		StartPos = data.StartPos,
 		EndPos = data.EndPos,
@@ -644,7 +652,7 @@ function Evade:OnTick()
 	self.MyHeroPos, self.BoundingRadius, self.Height, self.Quality = Point2D(myHero.pos),
 		myHero.boundingRadius or 65, myHero.pos.y, self.EvadeMenu.Core.Quality:Value() or 16
 	for i, data in ipairs(self.Enemies) do
-		local unit = data.Enemy; local spell = enemy.activeSpell
+		local unit = data.Enemy; local spell = unit.activeSpell
 		if unit.valid and not unit.dead and spell and spell.valid and
 			spell.isChanneling and data.ActiveSpell ~= spell.name .. spell.endTime then
 				data.ActiveSpell = spell.name .. spell.endTime
@@ -668,14 +676,15 @@ function Evade:OnTick()
 end
 
 function Evade:OnProcessSpell(unit, spell)
-	local slot = tonumber(unit.activeSpellSlot)
-	if SpellDatabase[unit.charName] and SpellDatabase[unit.charName][slot] then
-		local data = self:CopyTable(SpellDatabase[unit.charName][slot])
+	local unit, name = unit.charName, spell.name
+	if SpellDatabase[unit] and SpellDatabase[unit][name] then
+		local data = self:CopyTable(SpellDatabase[unit][name])
 		if data.Exception then return end
 		data.StartPos = Point2D(spell.startPos)
+		data.EndPos = Point2D(spell.placementPos)
 		data.EndPos = self:FixEndPosition(data)
 		data.Range = data.StartPos:Distance(data.EndPos)
-		self:CreateNewSpell(data)
+		data.Name = name; self:CreateNewSpell(data)
 	end
 end
 
@@ -683,16 +692,16 @@ function Evade:OnDraw()
 	self:UpdateSpells()
 	if self.EvadeMenu.Main.Draw:Value() then
 		for i, s in ipairs(self.Spells) do
-			local path, offset = {}, {}
-			for j, point in ipairs(s.Path) do
-				table.insert(path, self:ToScreen(point))
-			end
-			for j, point in ipairs(s.OffsetPath) do
-				table.insert(offset, self:ToScreen(point))
-			end
-			if self.EvadeMenu.Spells[s.MenuName]["Draw"..s.MenuName]:Value() then
-				self:DrawPolygon(path, Draw.Color(192, 255, 255, 0))
-				self:DrawPolygon(offset, Draw.Color(64, 255, 255, 0))
+			if self.EvadeMenu.Spells[s.Name]["Draw"..s.Name] then
+				local path, offset = {}, {}
+				for j, point in ipairs(s.Path) do
+					table.insert(path, self:ToScreen(point))
+				end
+				for j, point in ipairs(s.OffsetPath) do
+					table.insert(offset, self:ToScreen(point))
+				end
+				self:DrawPolygon(path, 1, Draw.Color(224, 255, 255, 255))
+				self:DrawPolygon(offset, 0.5, Draw.Color(192, 255, 255, 255))
 			end
 		end
 	end
@@ -711,7 +720,7 @@ function Evade:OnPreMovement(args)
 				table.insert(points, point)
 			end
 			if not intersects then
-				local ints = PathIntersection({self.MyHeroPos,
+				local ints = self:PathIntersection({self.MyHeroPos,
 					Point2D(args.Target)}, spell.OffsetPath)
 				if #ints > 0 then intersects = true end
 			end
@@ -728,3 +737,4 @@ function Evade:OnPreMovement(args)
 	end
 end
 
+Evade:__init()
