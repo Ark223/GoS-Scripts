@@ -22,10 +22,14 @@ local function Class()
 end
 
 function table.push(t1, t2)
-	for i, v in ipairs(t2) do
-		table.insert(t1, v)
+	local tab = {}
+	for i, v in ipairs(t1) do
+		table.insert(tab, v)
 	end
-	return t1
+	for i, v in ipairs(t2) do
+		table.insert(tab, v)
+	end
+	return tab
 end
 
 -- Point
@@ -149,6 +153,27 @@ end
 -- Spell Database
 
 local SpellDatabase = {
+	["Ashe"] = {
+		["Volley"] = {
+			DisplayName = "Volley",
+			MissileName = "VolleyRightAttack",
+			Type = "Conic",
+			Slot = "W",
+			Speed = 2000,
+			Range = 1200,
+			Delay = 0.25,
+			Radius = 20,
+			Angle = 40,
+			DangerLevel = 2,
+			CC = true,
+			Collision = false,
+			Exception = false,
+			Dangerous = false,
+			FixedRange = true,
+			FOW = true,
+			WindWall = true,
+		}
+	},
 	["Ryze"] = {
 		["RyzeQ"] = {
 			DisplayName = "Overload",
@@ -215,13 +240,15 @@ function Evade:__init()
 	self.EvadeMenu.Main:MenuElement({id = "Dodge", name = "Dodge Spells", value = true})
 	self.EvadeMenu.Main:MenuElement({id = "Draw", name = "Draw Spells", value = true})
 	self.EvadeMenu.Main:MenuElement({id = "MisDet", name = "Detect Missiles", value = true})
+	self.EvadeMenu.Main:MenuElement({id = "Debug", name = "Debug Mode [Z]", value = false})
 	self.EvadeMenu:MenuElement({id = "Spells", name = "Spell Settings", type = MENU})
 	self:LoadEnemyHeroData()
 	for i, data in ipairs(self.Enemies) do
-		if SpellDatabase[data.Enemy.charName] then
-			for j, spell in pairs(SpellDatabase[data.Enemy.charName]) do
-				self.EvadeMenu.Spells:MenuElement({id = j, name = data.Enemy.charName .. " [" .. spell.Slot
-					.. "] (" .. spell.DisplayName .. ")", leftIcon = self.IconSite .. j .. ".png", type = MENU})
+		local enemy = data.Enemy.charName
+		if SpellDatabase[enemy] then
+			for j, spell in pairs(SpellDatabase[enemy]) do
+				self.EvadeMenu.Spells:MenuElement({id = j, name = enemy .. " [" .. spell.Slot .. "] (" ..
+					spell.DisplayName .. ")", type = MENU}) --, leftIcon = self.IconSite .. enemy .. spell.Slot .. ".png"
 				self.EvadeMenu.Spells[j]:MenuElement({id = "Dodge" .. j, name = "Dodge", value = true})
 				self.EvadeMenu.Spells[j]:MenuElement({id = "Draw" .. j, name = "Draw", value = true})
 				self.EvadeMenu.Spells[j]:MenuElement({id = "Dangerous" .. j, name = "Dangerous", value = true})
@@ -399,11 +426,11 @@ end
 function Evade:GetPath(data)
 	if data.Type == "Linear" then
 		return self:RectangleToPolygon(data.StartPos, data.EndPos, data.Radius)
-	elseif data.type == "Circular" then
+	elseif data.Type == "Circular" then
 		return self:CircleToPolygon(data.EndPos, data.Radius, self.Quality)
-	elseif data.type == "Conic" then
+	elseif data.Type == "Conic" then
 		return table.push(self:ArcToPolygon(data.StartPos, data.EndPos, data.Angle), {data.StartPos})
-	elseif data.type == "Rectangular" then
+	elseif data.Type == "Rectangular" then
 		local dir = Point2D(data.EndPos - data.StartPos):Perpendicular():Normalize() * data.Radius2
 		return self:RectangleToPolygon(Point2D(data.EndPos - dir), Point2D(data.EndPos + dir), data.Radius)
 	end
@@ -655,9 +682,9 @@ function Evade:UpdateSpells()
 				spell.Position = self:CalculateDynamicPosition(spell)
 				if spell.Position ~= spell.StartPos then
 					local border = self:ArcToPolygon(spell.StartPos,
-						spell.EndPos, spell.Angle); self:ReversePath(border)
+						spell.Position, spell.Angle); self:ReversePath(border)
 					spell.Path = table.push(border, self:ArcToPolygon(
-						spell.StartPos, spell.Position, spell.Angle))
+						spell.StartPos, spell.EndPos, spell.Angle))
 					spell.OffsetPath = self:OffsetPath(spell.Path)
 				end
 			end
@@ -731,7 +758,8 @@ function Evade:OnDraw()
 end
 
 function Evade:OnWndMsg(msg, wParam)
-	if msg ~= 513 then return end
+	if not self.EvadeMenu.Main.Debug:Value()
+		or msg ~= 256 then return end
 	local edge = math.random(0, 1)
 	local startPos = edge == 0 and
 		Point2D(math.random(1400, 1500), math.random(600, 1300))
@@ -788,3 +816,4 @@ do
 		Evade:__init()
 	end, math.max(0.07, 30 - Game.Timer()))
 end
+
