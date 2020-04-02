@@ -758,8 +758,8 @@ function Evade:OnDraw()
 end
 
 function Evade:OnWndMsg(msg, wParam)
-	if not self.EvadeMenu.Main.Debug:Value()
-		or msg ~= 256 then return end
+	if not self.EvadeMenu.Main.Debug:Value() or not
+		(msg == 256 and wParam == 90) then return end
 	local edge = math.random(0, 1)
 	local startPos = edge == 0 and
 		Point2D(math.random(1400, 1500), math.random(600, 1300))
