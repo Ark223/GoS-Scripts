@@ -580,10 +580,11 @@ function Evade:CopyTable(tab)
 end
 -----------------------------------------------------------------------------------------------
 
-function Evade:CreateNewSpell(data)
+function Evade:CreateNewSpell(data, unit)
 	local path = data.Path or self:GetPath(data)
 	table.insert(self.Spells, {
 		Name = data.Name,
+		Unit = unit or nil,
 		StartTime = Game.Timer() - self:Latency(),
 		StartPos = data.StartPos,
 		EndPos = data.EndPos,
@@ -703,7 +704,7 @@ function Evade:OnProcessSpell(unit, spell)
 		data.EndPos = Point2D(spell.placementPos)
 		data.EndPos = self:FixEndPosition(data)
 		data.Range = data.StartPos:Distance(data.EndPos)
-		data.Name = name; self:CreateNewSpell(data)
+		data.Name = name; self:CreateNewSpell(data, unit)
 	end
 end
 
@@ -729,18 +730,25 @@ function Evade:OnDraw()
 end
 
 function Evade:OnWndMsg(msg, wParam)
-	if msg == 513 then
-		self:CreateNewSpell({
-			Name = "Test",
-			StartPos = Point2D(2000, 1000),
-			EndPos = Point2D(2700, 1500),
-			Speed = 1000,
-			Range = 860,
-			Delay = 0.25,
-			Radius = 70,
-			Type = "Linear"
-		})
-	end
+	if msg ~= 513 then return end
+	local edge = math.random(0, 1)
+	local startPos = edge == 0 and
+		Point2D(math.random(1400, 1500), math.random(600, 1300))
+	or Point2D(math.random(3200, 3300), math.random(600, 1300))
+	local endPos = edge == 0 and
+		Point2D(math.random(3200, 3300), math.random(600, 1300))
+	or Point2D(math.random(1400, 1500), math.random(600, 1300))
+	local dist = startPos:Distance(endPos)
+	self:CreateNewSpell({
+		Name = "Test",
+		StartPos = startPos,
+		EndPos = endPos,
+		Speed = math.random(1200, 1600),
+		Range = dist,
+		Delay = 0.25,
+		Radius = 60,
+		Type = "Linear"
+	})
 end
 
 function Evade:OnPreAttack(args)
@@ -768,7 +776,7 @@ function Evade:OnPreMovement(args)
 				self.MyHeroPos:DistanceSquared(b)
 			end)
 			args.Target = self:To3D(
-				self.MyHeroPos:Append(hull[2], -5):Round())
+				self.MyHeroPos:Append(hull[1], -5):Round())
 		end
 	end
 end
@@ -777,5 +785,5 @@ do
 	print("Loading 360Evade...")
 	DelayAction(function()
 		Evade:__init()
-	end, math.max(0.07, 30 - Game.Timer())
+	end, math.max(0.07, 30 - Game.Timer()))
 end
