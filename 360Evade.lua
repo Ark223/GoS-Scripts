@@ -181,11 +181,12 @@ local Evade = Class()
 --]]
 
 function Evade:__init()
-	self.Enemies, self.MyHeroPos, self.BoundingRadius,
-		self.EvadeTimer, self.Height, self.Quality = {}, nil, 0, 0, 0, 16
+	self.Enemies, self.Evading, self.MyHeroPos, self.SafePos, self.BoundingRadius,
+		self.EvadeTimer, self.Height, self.Quality = {}, false, nil, nil, 0, 0, 0, 16
 	self.SlotToSpell = {[0] = "Q", [1] = "W", [2] = "E", [3] = "R"}
 	self.IconSite = "https://raw.githubusercontent.com/Ark223/LoL-Icons/master/"
-	self.EvadeMenu = MenuElement({type = MENU, id = "360Evade", name = "360躲避"})
+	self.MenuIcon = "https://www.edgecumbe.co.uk/wp-content/uploads/360-Feedback.png"
+	self.EvadeMenu = MenuElement({type = MENU, id = "360Evade", name = "360躲避", leftIcon = self.MenuIcon})
 	self.EvadeMenu:MenuElement({id = "Core", name = "核心設定", type = MENU})
 	self.EvadeMenu.Core:MenuElement({id = "Ping", name = "平均延迟", value = 50, min = 0, max = 250, step = 5})
 	self.EvadeMenu.Core:MenuElement({id = "Quality", name = "分割質量", value = 16, min = 10, max = 25, step = 1})
@@ -194,7 +195,7 @@ function Evade:__init()
 	self.EvadeMenu.Main:MenuElement({id = "Draw", name = "技能图画", value = true})
 	self.EvadeMenu.Main:MenuElement({id = "MisDet", name = "導彈探測", value = true})
 	self.EvadeMenu:MenuElement({id = "Spells", name = "技能設定", type = MENU})
-	self.EvadeMenu.Spells:MenuElement({id = "Avoidable", name = "可躲避的技能:", type = SPACE}) --我正在盡力
+	--self.EvadeMenu.Spells:MenuElement({id = "Avoidable", name = "可躲避的技能:", type = SPACE}) --我正在盡力
 	self:LoadEnemyHeroData()
 	for i, data in ipairs(self.Enemies) do
 		if SpellDatabase[data.Enemy.charName] then
@@ -211,6 +212,13 @@ function Evade:__init()
 	end
 	Callback.Add("Tick", function() self:OnTick() end)
 	Callback.Add("Draw", function() self:OnDraw() end)
+	if _G.SDK then
+		_G.SDK.Orbwalker:OnPreAttack(function(...) self:OnPreAttack(...) end)
+		_G.SDK.Orbwalker:OnPreMovement(function(...) self:OnPreMovement(...) end)
+	elseif _G.PremiumOrbwalker then
+		_G.PremiumOrbwalker:OnPreAttack(function(...) self:OnPreAttack(...) end)
+		_G.PremiumOrbwalker:OnPreMovement(function(...) self:OnPreMovement(...) end)
+	end
 end
 
 -- Geometry
@@ -357,7 +365,7 @@ function Evade:GetBestEvadePos()
 		for j = 1, (i == 0 and 1 or 2) do
 			local candidate = i == 0 and extended or
 				extended:Rotate(theta, self.MyHeroPos):Round()
-			local safe, pos = self:IsSafePath(candidate, spellUsage)
+			local safe, pos = self:IsSafePath(candidate)
 			if safe then return pos end
 			theta = theta * -1
 		end
@@ -425,8 +433,8 @@ function Evade:IsSafePos(pos, spell)
 end
 -----------------------------------------------------------------------------------------------
 
-function Evade:IsSafePath(destination, spellUsage)
-	local moveSpeed, safe = self:MovementSpeed(spellUsage), {}
+function Evade:IsSafePath(destination)
+	local moveSpeed, safe = myHero.ms or 315, {}
 	for i, spell in ipairs(self.Spells) do
 		local ints = PathIntersection({self.MyHeroPos,
 			destination}, spell.OffsetPath)
@@ -550,7 +558,7 @@ end
 -----------------------------------------------------------------------------------------------
 
 function Evade:CreateNewSpell(data)
-	local path = self:GetPath(data)
+	local path = data.Path or self:GetPath(data)
 	table.insert(self.Spells, {
 		MenuName = data.MenuName,
 		StartTime = Game.Timer() - self:Latency(),
@@ -563,6 +571,8 @@ function Evade:CreateNewSpell(data)
 		Range = data.Range,
 		Delay = data.Delay,
 		Radius = data.Radius,
+		Radius2 = data.Radius2 or 0,
+		Angle = data.Angle or 0,
 		Type = data.Type
 	})
 end
@@ -635,8 +645,8 @@ function Evade:OnTick()
 		myHero.boundingRadius or 65, myHero.pos.y, self.EvadeMenu.Core.Quality:Value() or 16
 	for i, data in ipairs(self.Enemies) do
 		local unit = data.Enemy; local spell = enemy.activeSpell
-		if unit.valid and not unit.dead and spell
-			and spell.valid and spell ~= spell.endTime then
+		if unit.valid and not unit.dead and spell and spell.valid and
+			spell.isChanneling and data.ActiveSpell ~= spell.name .. spell.endTime then
 				data.ActiveSpell = spell.name .. spell.endTime
 				self:OnProcessSpell(unit, spell)
 		end
@@ -649,8 +659,10 @@ function Evade:OnTick()
 					Game.Timer(), true, evadePos
 				self:MoveToPos(evadePos); return
 			end
-			self:SwitchOff(); return
+			self:SwitchOff()
+			-- Impossible dodge
 		end
+		return
 	end
 	self:SwitchOff()
 end
@@ -686,7 +698,12 @@ function Evade:OnDraw()
 	end
 end
 
+function Evade:OnPreAttack(args)
+	if self.Evading then args.Process = false end
+end
+
 function Evade:OnPreMovement(args)
+	if self.Evading then args.Process = false; return end
 	if not self:IsInDangerousArea(self.MyHeroPos) then
 		local intersects, points = false, {}
 		for i, spell in ipairs(self.Spells) do
