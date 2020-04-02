@@ -22,7 +22,7 @@ local function ReadFile(file)
 	txt:close(); return result
 end
 
-local Version = 1.0
+local Version = 1.01
 local function AutoUpdate()
 	DownloadFile("https://raw.githubusercontent.com/Ark223/GoS-Scripts/master/PremiumOrbwalkerWIP.version", SCRIPT_PATH .. "PremiumOrbwalkerWIP.version")
 	if tonumber(ReadFile(SCRIPT_PATH .. "PremiumOrbwalkerWIP.version")) > Version then
@@ -641,9 +641,9 @@ function PremiumOrb:OnTick()
 		for i = 1, #self.OnPreAA do self.OnPreAA[i](args) end
 		if args.Process then self:AttackUnit(args.Target) end
 	elseif self:CanMove() then
-		local args = {Process = true}
+		local args = {Target = nil, Process = true}
 		for i = 1, #self.OnPreMove do self.OnPreMove[i]() end
-		if args.Process then self:Move() end
+		if args.Process then self:Move(args.Target) end
 	end
 end
 
@@ -668,8 +668,12 @@ function PremiumOrb:AttackUnit(unit, check)
 	end, 0.05)
 end
 
-function PremiumOrb:Move()
+function PremiumOrb:Move(pos)
 	if GetTickCount() - self.MoveTimer >= 100 then
+		if pos ~= nil then
+			local pos = Vector(pos):To2D()
+			ControlSetCursorPos(pos.x, pos.y)
+		end
 		ControlMouseEvent(MOUSEEVENTF_RIGHTDOWN)
 		ControlMouseEvent(MOUSEEVENTF_RIGHTUP)
 		self.MoveTimer = GetTickCount() + MathRandom(-25, 25)
