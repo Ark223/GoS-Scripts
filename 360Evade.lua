@@ -196,6 +196,7 @@ function Evade:__init()
 	self.EvadeMenu:MenuElement({id = "Core", name = "Core Settings", type = MENU})
 	self.EvadeMenu.Core:MenuElement({id = "Step", name = "Angle Search Step", drop = {5, 10, 15, 20, 30, 45}, value = 4})
 	self.EvadeMenu.Core:MenuElement({id = "Ping", name = "Average Game Ping", value = 50, min = 0, max = 250, step = 5})
+	self.EvadeMenu.Core:MenuElement({id = "Delay", name = "Internal Search Delay", value = 125, min = 100, max = 500, step = 25})
 	self.EvadeMenu.Core:MenuElement({id = "Quality", name = "Segmentation Quality", value = 16, min = 10, max = 25, step = 1})
 	self.EvadeMenu:MenuElement({id = "Main", name = "Main Settings", type = MENU})
 	self.EvadeMenu.Main:MenuElement({id = "Dodge", name = "Dodge Spells", value = true})
@@ -662,7 +663,8 @@ function Evade:OnTick()
 		end
 	end
 	if self:IsInDangerousArea(self.MyHeroPos) then
-		if Game.Timer() - self.EvadeTimer > 0.125 then
+		if Game.Timer() - self.EvadeTimer >=
+			self.EvadeMenu.Core.Delay:Value() * 0.001 then
 			local evadePos = self:GetBestEvadePos()
 			if evadePos ~= nil then
 				self.EvadeTimer, self.Evading, self.SafePos =
