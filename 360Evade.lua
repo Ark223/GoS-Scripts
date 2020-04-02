@@ -1,4 +1,17 @@
 
+--[[
+
+	 ad888888b,   ad8888ba,    ,a8888a,    88888888888                             88           
+	d8"     "88  8P'    "Y8  ,8P"'  `"Y8,  88                                      88           
+			a8P d8          ,8P        Y8, 88                                      88           
+		 aad8"  88,dd888bb, 88          88 88aaaaa 8b       d8 ,adPPYYba,  ,adPPYb,88  ,adPPYba,
+		 ""Y8,  88P'    `8b 88          88 88""""" `8b     d8' ""     `Y8 a8"    `Y88 a8P_____88
+			"8b 88       d8 `8b        d8' 88       `8b   d8'  ,adPPPPP88 8b       88 8PP"""""""
+	Y8,     a88 88a     a8P  `8ba,  ,ad8'  88        `8b,d8'   88,    ,88 "8a,   ,d88 "8b,   ,aa
+	 "Y888888P'  "Y88888P"     "Y8888P"    88888888888 "8"     `"8bbdP"Y8  `"8bbdP"Y8  `"Ybbd8"'
+
+--]]
+
 local function Class()
 	local cls = {}; cls.__index = cls
 	return setmetatable(cls, {__call = function (c, ...)
@@ -160,8 +173,6 @@ local SpellDatabase = {
 
 -- Menu
 
-local Evade = Class()
-
 --[[
 	[Keys]
 	[General Options]
@@ -187,6 +198,8 @@ local Evade = Class()
 	[Spell Blocking]
 --]]
 
+local Evade = Class()
+
 function Evade:__init()
 	self.Enemies, self.Spells, self.Evading, self.MyHeroPos, self.SafePos, self.BoundingRadius,
 		self.EvadeTimer, self.Height, self.Quality = {}, {}, false, nil, nil, 0, 0, 0, 16
@@ -196,8 +209,8 @@ function Evade:__init()
 	self.EvadeMenu:MenuElement({id = "Core", name = "Core Settings", type = MENU})
 	self.EvadeMenu.Core:MenuElement({id = "Step", name = "Angle Search Step", drop = {5, 10, 15, 20, 30, 45}, value = 4})
 	self.EvadeMenu.Core:MenuElement({id = "Ping", name = "Average Game Ping", value = 50, min = 0, max = 250, step = 5})
-	self.EvadeMenu.Core:MenuElement({id = "Delay", name = "Internal Search Delay", value = 125, min = 100, max = 500, step = 25})
-	self.EvadeMenu.Core:MenuElement({id = "Quality", name = "Segmentation Quality", value = 16, min = 10, max = 25, step = 1})
+	self.EvadeMenu.Core:MenuElement({id = "Quality", name = "Circle Segments Quality", value = 16, min = 10, max = 25, step = 1})
+	self.EvadeMenu.Core:MenuElement({id = "Interval", name = "Path Update Interval", value = 125, min = 100, max = 500, step = 25})
 	self.EvadeMenu:MenuElement({id = "Main", name = "Main Settings", type = MENU})
 	self.EvadeMenu.Main:MenuElement({id = "Dodge", name = "Dodge Spells", value = true})
 	self.EvadeMenu.Main:MenuElement({id = "Draw", name = "Draw Spells", value = true})
@@ -227,6 +240,7 @@ function Evade:__init()
 		_G.PremiumOrbwalker:OnPreAttack(function(...) self:OnPreAttack(...) end)
 		_G.PremiumOrbwalker:OnPreMovement(function(...) self:OnPreMovement(...) end)
 	end
+	print("360Evade successfully loaded! Have fun!")
 end
 
 -- Geometry
@@ -664,7 +678,7 @@ function Evade:OnTick()
 	end
 	if self:IsInDangerousArea(self.MyHeroPos) then
 		if Game.Timer() - self.EvadeTimer >=
-			self.EvadeMenu.Core.Delay:Value() * 0.001 then
+			self.EvadeMenu.Core.Interval:Value() * 0.001 then
 			local evadePos = self:GetBestEvadePos()
 			if evadePos ~= nil then
 				self.EvadeTimer, self.Evading, self.SafePos =
@@ -758,4 +772,9 @@ function Evade:OnPreMovement(args)
 	end
 end
 
-Evade:__init()
+do
+	print("Loading 360Evade...")
+	DelayAction(function()
+		Evade:__init()
+	end, math.max(0.07, 30 - Game.Timer())
+end
