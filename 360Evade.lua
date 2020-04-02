@@ -101,10 +101,10 @@ end
 
 function Point2D:LengthSquared(p)
 	local p = p and Point2D(p) or self
-	return self.x * self.x + self.y * self.y
+	return p.x * p.x + p.y * p.y
 end
 
-function Point2D:Length()
+function Point2D:Length(p)
 	return math.sqrt(self:LengthSquared(p))
 end
 
@@ -194,6 +194,7 @@ function Evade:__init()
 	self.MenuIcon = "https://www.edgecumbe.co.uk/wp-content/uploads/360-Feedback.png"
 	self.EvadeMenu = MenuElement({type = MENU, id = "360Evade", name = "360Evade", leftIcon = self.MenuIcon})
 	self.EvadeMenu:MenuElement({id = "Core", name = "Core Settings", type = MENU})
+	self.EvadeMenu.Core:MenuElement({id = "Step", name = "Angle Search Step", drop = {5, 10, 15, 20, 30, 45}, value = 4})
 	self.EvadeMenu.Core:MenuElement({id = "Ping", name = "Average Game Ping", value = 50, min = 0, max = 250, step = 5})
 	self.EvadeMenu.Core:MenuElement({id = "Quality", name = "Segmentation Quality", value = 16, min = 10, max = 25, step = 1})
 	self.EvadeMenu:MenuElement({id = "Main", name = "Main Settings", type = MENU})
@@ -201,7 +202,6 @@ function Evade:__init()
 	self.EvadeMenu.Main:MenuElement({id = "Draw", name = "Draw Spells", value = true})
 	self.EvadeMenu.Main:MenuElement({id = "MisDet", name = "Detect Missiles", value = true})
 	self.EvadeMenu:MenuElement({id = "Spells", name = "Spell Settings", type = MENU})
-	--self.EvadeMenu.Spells:MenuElement({id = "Avoidable", name = "Dodgeable:", type = SPACE})
 	self:LoadEnemyHeroData()
 	for i, data in ipairs(self.Enemies) do
 		if SpellDatabase[data.Enemy.charName] then
@@ -218,6 +218,7 @@ function Evade:__init()
 	end
 	Callback.Add("Tick", function() self:OnTick() end)
 	Callback.Add("Draw", function() self:OnDraw() end)
+	Callback.Add("WndMsg", function(...) self:OnWndMsg(...) end)
 	if _G.SDK then
 		_G.SDK.Orbwalker:OnPreAttack(function(...) self:OnPreAttack(...) end)
 		_G.SDK.Orbwalker:OnPreMovement(function(...) self:OnPreMovement(...) end)
@@ -366,7 +367,7 @@ end
 
 function Evade:GetBestEvadePos()
 	local extended = self.MyHeroPos:Extend(Point2D(mousePos), 5000)
-	for i = 0, 180, 10 do
+	for i = 0, 180, self.EvadeMenu.Core.Step:Value() do
 		local theta = math.rad(i)
 		for j = 1, (i == 0 and 1 or 2) do
 			local candidate = i == 0 and extended or
@@ -396,10 +397,10 @@ end
 -----------------------------------------------------------------------------------------------
 
 function Evade:Intersection(s1, s2, c1, c2, line)
-	local a, b, c = Point2D(s2 - s1), Point2D(c2 - c1), Point2D(s1 - c1)
-	local d = self:CrossProduct(b, a); if d == 0 then return nil end
-	local t1, t2 = self:CrossProduct(b, c) / d, self:CrossProduct(a, c) / d
-	return (t1 > 0 and t1 < 1 and t2 > 0 and t2 < 1 or line) and Point2D(s1 + a * t1) or nil
+	local a, b, c = Point2D(s2 - s1), Point2D(c2 - c1), Point2D(c1 - s1)
+	local d = self:CrossProduct(a, b); if d == 0 then return nil end
+	local t1, t2 = self:CrossProduct(c, b) / d, self:CrossProduct(c, a) / d
+	return (t1 > 0 and t1 < 1 and t2 > 0 and t2 < 1 or line ~= nil) and Point2D(s1 + a * t1) or nil
 end
 -----------------------------------------------------------------------------------------------
 
@@ -439,6 +440,7 @@ end
 -----------------------------------------------------------------------------------------------
 
 function Evade:IsSafePath(destination)
+	local safety = self:Latency() + 0.07
 	local moveSpeed, safe = myHero.ms or 315, {}
 	for i, spell in ipairs(self.Spells) do
 		local ints = self:PathIntersection({
@@ -452,12 +454,13 @@ function Evade:IsSafePath(destination)
 			self.MyHeroPos:DistanceSquared(int) then int = ints[1] end
 		local dist = self.MyHeroPos:Distance(int)
 		if spell.Speed ~= math.huge and spell.Type == "Linear" then
-			local pos = self:CalculateDynamicPosition(spell, dist / moveSpeed)
+			local pos = self:CalculateDynamicPosition(spell, dist / moveSpeed + safety)
+			local closest = self:ClosestPointOnSegment(int, spell.Position, pos)
 			if spell.StartPos ~= pos and int:Distance(closest) <=
 				self.BoundingRadius + spell.Radius + 1 then return false, nil
 			end
 		else
-			local t = math.max(0, Game.Timer() - spell.StartTime + spell.Delay)
+			local t = math.max(0, Game.Timer() - spell.StartTime + spell.Delay - safety)
 			local futurePos = self.MyHeroPos:Extend(destination, moveSpeed * t)
 			if not self:IsSafePos(futurePos, spell) then return false, nil end
 		end
@@ -479,18 +482,18 @@ end
 -----------------------------------------------------------------------------------------------
 
 function Evade:OffsetPath(path, delta)
-	local path = self:CopyTable(path)
 	local delta = delta or self.BoundingRadius
 	local steps = math.sqrt(delta) / math.pi * 2
-	if self:Orientation(path) then self:ReversePath(path) end
 	local result, j, k = {}, #path, #path - 1
 	for i = 1, #path do
 		local a, b, c = path[k], path[j], path[i]
 		local inside = self:IsPointInPolygon(c:Append(b, 2):Round(), path)
-		local d1, d2 = Point2D(b - a):Normalize():Perpendicular() * delta,
-			Point2D(c - b):Normalize():Perpendicular() * delta
-		local int = self:Intersection(Point2D(a + d1), Point2D(
-			b + d1), Point2D(b + d2), Point2D(c + d2), true):Round()
+		local d1, d2 =
+			Point2D(b - a):Normalize():Perpendicular2() * delta,
+			Point2D(c - b):Normalize():Perpendicular2() * delta
+		local int = self:Intersection(
+			Point2D(a + d1), Point2D(b + d1),
+			Point2D(b + d2), Point2D(c + d2), true):Round()
 		if not inside then
 			local ex = b:Extend(int, delta)
 			local angle = 90 - self:AngleBetween(b, a, c) * 0.5
@@ -505,7 +508,6 @@ function Evade:OffsetPath(path, delta)
 				table.insert(result, ex:Rotate(math.rad(i), int))
 			end
 		end
-		table.insert(result, int)
 		k = j; j = i
 	end
 	return result
@@ -530,10 +532,8 @@ end
 -----------------------------------------------------------------------------------------------
 
 function Evade:RectangleToPolygon(p1, p2, radius)
-	local dir = Point2D(p2 - p1):Normalize() * radius
-	local perp = dir:Perpendicular()
-	return {Point2D(p1 + perp - dir), Point2D(p1 - perp - dir),
-		Point2D(p2 - perp + dir), Point2D(p2 + perp + dir)}
+	local dir = Point2D(p2 - p1):Normalize():Perpendicular() * radius
+	return {Point2D(p1 + dir), Point2D(p1 - dir), Point2D(p2 - dir), Point2D(p2 + dir)}
 end
 -----------------------------------------------------------------------------------------------
 
@@ -603,10 +603,12 @@ end
 -----------------------------------------------------------------------------------------------
 
 function Evade:MoveToPos(pos)
+	local dodge = self.MyHeroPos:Append(
+		pos, self.BoundingRadius * 2)
 	if _G.SDK and _G.Control.Evade then
-		_G.Control.Evade(self:To3D(pos)); return
+		_G.Control.Evade(self:To3D(dodge)); return
 	end
-	local pos = self:ToScreen(pos)
+	local pos = self:ToScreen(dodge)
 	Control.SetCursorPos(pos.x, pos.y)
 	Control.mouse_event(MOUSEEVENTF_RIGHTDOWN)
 	Control.mouse_event(MOUSEEVENTF_RIGHTUP)
@@ -692,7 +694,7 @@ function Evade:OnDraw()
 	self:UpdateSpells()
 	if self.EvadeMenu.Main.Draw:Value() then
 		for i, s in ipairs(self.Spells) do
-			if self.EvadeMenu.Spells[s.Name]["Draw"..s.Name] then
+			if s.Name == "Test" or self.EvadeMenu.Spells[s.Name]["Draw"..s.Name] then
 				local path, offset = {}, {}
 				for j, point in ipairs(s.Path) do
 					table.insert(path, self:ToScreen(point))
@@ -701,9 +703,26 @@ function Evade:OnDraw()
 					table.insert(offset, self:ToScreen(point))
 				end
 				self:DrawPolygon(path, 1, Draw.Color(224, 255, 255, 255))
-				self:DrawPolygon(offset, 0.5, Draw.Color(192, 255, 255, 255))
+				self:DrawPolygon(offset, 0.1, Draw.Color(128, 255, 255, 255))
+				if self.SafePos then Draw.Circle(self:To3D(self.SafePos),
+					self.BoundingRadius, 1, Draw.Color(128, 255, 255, 0)) end
 			end
 		end
+	end
+end
+
+function Evade:OnWndMsg(msg, wParam)
+	if msg == 513 then
+		self:CreateNewSpell({
+			Name = "Test",
+			StartPos = Point2D(2000, 1000),
+			EndPos = Point2D(2700, 1500),
+			Speed = 1000,
+			Range = 860,
+			Delay = 0.25,
+			Radius = 70,
+			Type = "Linear"
+		})
 	end
 end
 
