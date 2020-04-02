@@ -171,7 +171,63 @@ local SpellDatabase = {
 			Dangerous = false,
 			FixedRange = true,
 			FOW = true,
-			WindWall = true,
+			WindWall = true
+		}
+	},
+	["Ezreal"] = {
+		["EzrealQ"] = {
+			DisplayName = "Mystic Shot",
+			MissileName = "EzrealQ",
+			Type = "Linear",
+			Slot = "Q",
+			Speed = 2000,
+			Range = 1150,
+			Delay = 0.25,
+			Radius = 60,
+			DangerLevel = 1,
+			CC = false,
+			Collision = true,
+			Exception = false,
+			Dangerous = false,
+			FixedRange = true,
+			FOW = true,
+			WindWall = true
+		},
+		["EzrealW"] = {
+			DisplayName = "Essence Flux",
+			MissileName = "EzrealW",
+			Type = "Linear",
+			Slot = "W",
+			Speed = 2000,
+			Range = 1150,
+			Delay = 0.25,
+			Radius = 60,
+			DangerLevel = 1,
+			CC = false,
+			Collision = false,
+			Exception = false,
+			Dangerous = false,
+			FixedRange = true,
+			FOW = true,
+			WindWall = true
+		},
+		["EzrealR"] = {
+			DisplayName = "Trueshot Barrage",
+			MissileName = "EzrealR",
+			Type = "Linear",
+			Slot = "R",
+			Speed = 2000,
+			Range = 12500,
+			Delay = 1,
+			Radius = 160,
+			DangerLevel = 4,
+			CC = false,
+			Collision = false,
+			Exception = false,
+			Dangerous = true,
+			FixedRange = true,
+			FOW = true,
+			WindWall = true
 		}
 	},
 	["Ryze"] = {
@@ -235,7 +291,7 @@ function Evade:__init()
 	self.EvadeMenu.Core:MenuElement({id = "Step", name = "Angle Search Step", drop = {5, 10, 15, 20, 30, 45}, value = 4})
 	self.EvadeMenu.Core:MenuElement({id = "Ping", name = "Average Game Ping", value = 50, min = 0, max = 250, step = 5})
 	self.EvadeMenu.Core:MenuElement({id = "Quality", name = "Circle Segments Quality", value = 16, min = 10, max = 25, step = 1})
-	self.EvadeMenu.Core:MenuElement({id = "Interval", name = "Path Update Interval", value = 125, min = 100, max = 500, step = 25})
+	self.EvadeMenu.Core:MenuElement({id = "Interval", name = "Path Update Interval", value = 150, min = 100, max = 500, step = 25})
 	self.EvadeMenu:MenuElement({id = "Main", name = "Main Settings", type = MENU})
 	self.EvadeMenu.Main:MenuElement({id = "Dodge", name = "Dodge Spells", value = true})
 	self.EvadeMenu.Main:MenuElement({id = "Draw", name = "Draw Spells", value = true})
@@ -251,7 +307,7 @@ function Evade:__init()
 					spell.DisplayName .. ")", type = MENU}) --, leftIcon = self.IconSite .. enemy .. spell.Slot .. ".png"
 				self.EvadeMenu.Spells[j]:MenuElement({id = "Dodge" .. j, name = "Dodge", value = true})
 				self.EvadeMenu.Spells[j]:MenuElement({id = "Draw" .. j, name = "Draw", value = true})
-				self.EvadeMenu.Spells[j]:MenuElement({id = "Dangerous" .. j, name = "Dangerous", value = true})
+				self.EvadeMenu.Spells[j]:MenuElement({id = "Dangerous" .. j, name = "Dangerous", value = spell.Dangerous})
 				self.EvadeMenu.Spells[j]:MenuElement({id = "Danger" .. j,
 					name = "Danger Level", value = (spell.DangerLevel or 1), min = 1, max = 5, step = 1})
 			end
@@ -648,7 +704,7 @@ end
 
 function Evade:MoveToPos(pos)
 	local dodge = self.MyHeroPos:Append(
-		pos, self.BoundingRadius * 2)
+		pos, self.BoundingRadius * 2.5)
 	if _G.SDK and _G.Control.Evade then
 		_G.Control.Evade(self:To3D(dodge)); return
 	end
@@ -695,8 +751,9 @@ end
 -- Callbacks
 
 function Evade:OnTick()
+	if self.SafePos then self:MoveToPos(self.SafePos) end
 	self.MyHeroPos, self.BoundingRadius, self.Height, self.Quality = Point2D(myHero.pos),
-		myHero.boundingRadius or 65, myHero.pos.y, self.EvadeMenu.Core.Quality:Value() or 16
+		(myHero.boundingRadius or 65) + 5, myHero.pos.y, self.EvadeMenu.Core.Quality:Value() or 16
 	for i, data in ipairs(self.Enemies) do
 		local unit = data.Enemy; local spell = unit.activeSpell
 		if unit.valid and not unit.dead and spell and spell.valid and
@@ -711,8 +768,7 @@ function Evade:OnTick()
 			local evadePos = self:GetBestEvadePos()
 			if evadePos ~= nil then
 				self.EvadeTimer, self.Evading, self.SafePos =
-					Game.Timer(), true, evadePos
-				self:MoveToPos(evadePos); return
+					Game.Timer(), true, evadePos; return
 			end
 			self:SwitchOff()
 			-- Impossible dodge
@@ -772,7 +828,7 @@ function Evade:OnWndMsg(msg, wParam)
 		Name = "Test",
 		StartPos = startPos,
 		EndPos = endPos,
-		Speed = math.random(1200, 1600),
+		Speed = math.random(1000, 2000),
 		Range = dist,
 		Delay = 0.25,
 		Radius = 60,
@@ -804,8 +860,8 @@ function Evade:OnPreMovement(args)
 				self.MyHeroPos:DistanceSquared(a) <
 				self.MyHeroPos:DistanceSquared(b)
 			end)
-			args.Target = self:To3D(
-				self.MyHeroPos:Append(hull[1], -5):Round())
+			args.Target = self:To3D(self.MyHeroPos:Append(
+				hull[1], -self.BoundingRadius):Round())
 		end
 	end
 end
