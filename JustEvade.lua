@@ -12,6 +12,9 @@
 
 	Changelog:
 
+	v1.1.4
+	+ Improved drawing performance
+
 	v1.1.3
 	+ Fixed API callbacks
 
@@ -76,7 +79,7 @@ local function ReadFile(file)
 	txt:close(); return result
 end
 
-local Version, IntVer = 1.13, "1.1.3"
+local Version, IntVer = 1.14, "1.1.4"
 local function AutoUpdate()
 	DownloadFile("https://raw.githubusercontent.com/Ark223/GoS-Scripts/master/JustEvade.version", SCRIPT_PATH .. "JustEvade.version")
 	if tonumber(ReadFile(SCRIPT_PATH .. "JustEvade.version")) > Version then
@@ -1782,9 +1785,8 @@ end
 
 function JEvade:Tick()
 	if not self.JEMenu.Main.Evade:Value() or GameTimer() < 5 then return end
-	self.DoD = self.JEMenu.Main.DD:Value() and true or false
+	self.DoD = self.JEMenu.Main.DD:Value() == true
 	self.BoundingRadius = myHero.boundingRadius or 65
-	self.DodgeableSpells = self:GetDodgeableSpells()
 	self.MyHeroPos, self.MousePos = self:To2D(myHero.pos), self:To2D(mousePos)
 	if myHero.dead then return end
 	for i = 1, #self.Enemies do
@@ -1962,6 +1964,7 @@ end
 
 function JEvade:Draw()
 	if not self.JEMenu.Main.Evade:Value() then return end
+	self.DodgeableSpells = self:GetDodgeableSpells()
 	if self.JEMenu.Main.Status:Value() then
 		if self.JEMenu.Main.Evade:Value() then
 			if self.DoD then
