@@ -555,7 +555,7 @@ end
 
 function PremiumPred:IsFacing(source, unit, angle)
 	local sPos, uPos, dir = self:To2D(source.pos), self:To2D(unit.pos), self:To2D(source.dir)
-	return self:AngleBetween(sPos, Point2(sPos + dir), uPos) < (angle or 90)
+	return self:AngleBetween(sPos, Point2(sPos + dir * 65), uPos) < (angle or 90)
 end
 
 function PremiumPred:IsPointInArc(sourcePos, unitPos, endPos, range, angle)
