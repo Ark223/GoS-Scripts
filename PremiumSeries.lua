@@ -11,6 +11,9 @@
 
 	Changelog:
 
+	v1.0.9
+	+ Added Quinn
+
 	v1.0.8
 	+ Added Premium Orbwalker support
 
@@ -54,10 +57,11 @@
 
 --]]
 
-local GlobalVersion = 1.08
+local GlobalVersion = 1.09
 
 local Champions = {
 	["Cassiopeia"] = function() return Cassiopeia:__init() end,
+	["Quinn"] = function() return Quinn:__init() end,
 	["Vayne"] = function() return Vayne:__init() end,
 	["Viktor"] = function() return Viktor:__init() end,
 	["Xerath"] = function() return Xerath:__init() end,
@@ -66,6 +70,7 @@ local Champions = {
 
 local Versions = {
 	["Cassiopeia"] = "1.0.4",
+	["Quinn"] = "1.0",
 	["Vayne"] = "1.0",
 	["Viktor"] = "1.0",
 	["Xerath"] = "1.0.4",
@@ -74,8 +79,10 @@ local Versions = {
 
 -- Init
 
-local MathAbs, MathAtan, MathAtan2, MathAcos, MathCeil, MathCos, MathDeg, MathFloor, MathHuge, MathMax, MathMin, MathPi, MathRad, MathRandom, MathSin, MathSqrt = math.abs, math.atan, math.atan2, math.acos, math.ceil, math.cos, math.deg, math.floor, math.huge, math.max, math.min, math.pi, math.rad, math.random, math.sin, math.sqrt
-local ControlIsKeyDown, ControlKeyDown, ControlKeyUp, ControlSetCursorPos, DrawCircle, DrawLine, GameCanUseSpell, GameLatency, GameTimer, GameHeroCount, GameHero, GameMinionCount, GameMinion, GameTurretCount, GameTurret = Control.IsKeyDown, Control.KeyDown, Control.KeyUp, Control.SetCursorPos, Draw.Circle, Draw.Line, Game.CanUseSpell, Game.Latency, Game.Timer, Game.HeroCount, Game.Hero, Game.MinionCount, Game.Minion, Game.TurretCount, Game.Turret
+local MathAbs, MathAtan, MathAtan2, MathAcos, MathCeil, MathCos, MathDeg, MathFloor, MathHuge, MathMax, MathMin, MathPi, MathRad, MathRandom, MathSin, MathSqrt =
+	math.abs, math.atan, math.atan2, math.acos, math.ceil, math.cos, math.deg, math.floor, math.huge, math.max, math.min, math.pi, math.rad, math.random, math.sin, math.sqrt
+local ControlIsKeyDown, ControlKeyDown, ControlKeyUp, ControlSetCursorPos, DrawCircle, DrawLine, DrawRect, DrawText, GameCanUseSpell, GameLatency, GameTimer, GameHeroCount, GameHero, GameMinionCount, GameMinion, GameTurretCount, GameTurret =
+	Control.IsKeyDown, Control.KeyDown, Control.KeyUp, Control.SetCursorPos, Draw.Circle, Draw.Line, Draw.Rect, Draw.Text, Game.CanUseSpell, Game.Latency, Game.Timer, Game.HeroCount, Game.Hero, Game.MinionCount, Game.Minion, Game.TurretCount, Game.Turret
 local TableInsert, TableRemove, TableSort = table.insert, table.remove, table.sort
 local Icons, Png = "https://raw.githubusercontent.com/Ark223/LoL-Icons/master/", ".png"
 
@@ -106,11 +113,15 @@ function OnLoad()
 		print("PremiumPrediction: Library not found! Please download it and put into Common folder!");
 		return
 	end
-	require "PremiumPrediction"
-	if Champions[myHero.charName] ~= nil then
-		Champions[myHero.charName]()
-	end
-	AutoUpdate()
+	print("Loading PremiumSeries...")
+	DelayAction(function()
+		require "PremiumPrediction"
+		if Champions[myHero.charName] ~= nil then
+			Champions[myHero.charName]()
+		end
+		print("PremiumSeries successfully loaded!")
+		AutoUpdate()
+	end, MathMax(0.07, 30 - GameTimer()))
 end
 
 local WindwallBlockSpells = {
@@ -1201,12 +1212,8 @@ end
 function Manager:IsValid(unit, range, pos)
 	local range = range or 12500
 	local pos = pos or Geometry:To2D(myHero.pos)
-	return unit and
-		unit.valid and
-		unit.visible and
-		unit.health > 0 and
-		unit.maxHealth > 5 and
-		Geometry:DistanceSquared(pos, Geometry:To2D(unit.pos)) <= range * range
+	return unit and unit.valid and unit.visible and unit.health > 0 and unit.maxHealth > 5
+		and Geometry:DistanceSquared(pos, Geometry:To2D(unit.pos)) <= range * range
 end
 
 --[[
@@ -1345,7 +1352,7 @@ function Cassiopeia:OnDraw()
 		for i, enemy in ipairs(Manager:GetEnemyHeroes()) do
 			if enemy and enemy.valid and enemy.visible then
 				local dist = Geometry:DistanceSquared(self.MyPos, Geometry:To2D(enemy.pos))
-				DrawLine(myHero.pos:To2D(), enemy.pos:To2D(), 2,
+				DrawLine(myHero.pos:To2D(), enemy.pos:To2D(), 2.5,
 					dist < 4000000 and Draw.Color(128, 220, 20, 60)
 					or dist < 16000000 and Draw.Color(128, 240, 230, 140)
 					or Draw.Color(128, 152, 251, 152))
@@ -1464,6 +1471,238 @@ function Cassiopeia:Harass(targetQ, targetW, targetE)
 				self.QueueTimer = GameTimer(); self.WindUp = self.E.windup
 				_G.Control.CastSpell(HK_E, targetE.pos)
 		end
+	end
+end
+
+--[[
+	┌─┐ ┬ ┬┬┌┐┌┌┐┌
+	│─┼┐│ ││││││││
+	└─┘└└─┘┴┘└┘┘└┘
+--]]
+
+class "Quinn"
+
+function Quinn:__init()
+	self.Window = PPoint(Game.Resolution().x * 0.5, Game.Resolution().y * 0.5)
+	self.LastAttack, self.LastSpell, self.AllowMove, self.LastEnemy, self.States = 0, 0, nil, nil, {true, true, true}
+	self.Q = {speed = 1550, range = 1025, delay = 0.25, radius = 60, collision = {"minion"}, type = "linear"}
+	self.W, self.E = {range = 2100}, {range = 675}
+	self.QuinnMenu = MenuElement({type = MENU, id = "Quinn", name = "Premium Quinn v" .. Versions[myHero.charName]})
+	self.QuinnMenu:MenuElement({id = "Auto", name = "Auto", type = MENU})
+	self.QuinnMenu.Auto:MenuElement({id = "UseW", name = "W [Heightened Senses]", value = true, leftIcon = Icons.."QuinnW"..Png})
+	self.QuinnMenu:MenuElement({id = "Combo", name = "Combo", type = MENU})
+	self.QuinnMenu.Combo:MenuElement({id = "UseQ", name = "Q [Blinding Assault]", value = true, leftIcon = Icons.."QuinnQ"..Png})
+	self.QuinnMenu.Combo:MenuElement({id = "UseE", name = "E [Vault]", value = true, leftIcon = Icons.."QuinnE"..Png})
+	self.QuinnMenu:MenuElement({id = "Harass", name = "Harass", type = MENU})
+	self.QuinnMenu.Harass:MenuElement({id = "UseQ", name = "Q [Blinding Assault]", value = true, leftIcon = Icons.."QuinnQ"..Png})
+	self.QuinnMenu.Harass:MenuElement({id = "UseE", name = "E [Vault]", value = false, leftIcon = Icons.."QuinnE"..Png})
+	self.QuinnMenu:MenuElement({id = "Interrupter", name = "Interrupter", type = MENU})
+	self.QuinnMenu.Interrupter:MenuElement({id = "UseE", name = "E [Vault]", value = true, leftIcon = Icons.."QuinnE"..Png})
+	self.QuinnMenu.Interrupter:MenuElement({id = "MeleeE", name = "E: Cast Against Melees", value = true})
+	self.QuinnMenu.Interrupter:MenuElement({id = "DashE", name = "E: Cast Against Dashes", value = true})
+	self.QuinnMenu.Interrupter:MenuElement({id = "Whitelist", name = "Whitelist:", type = MENU})
+	for i = 1, Game.HeroCount() do
+		local unit = Game.Hero(i)
+		if unit.isEnemy then
+			local charName = unit.charName
+			self.QuinnMenu.Interrupter.Whitelist:MenuElement({
+				id = charName, name = charName, value = true})
+		end
+	end
+	self.QuinnMenu:MenuElement({id = "Drawings", name = "Drawings", type = MENU})
+	self.QuinnMenu.Drawings:MenuElement({id = "DrawQ", name = "Q: Draw Range", value = true})
+	self.QuinnMenu.Drawings:MenuElement({id = "DrawE", name = "E: Draw Range", value = true})
+	self.QuinnMenu.Drawings:MenuElement({id = "Track", name = "Track Enemies", value = true})
+	self.QuinnMenu:MenuElement({id = "Misc", name = "Misc", type = MENU})
+	self.QuinnMenu.Misc:MenuElement({id = "AA", name = "AA Priority", key = string.byte("1")})
+	self.QuinnMenu.Misc:MenuElement({id = "Block", name = "Block Spells On Passive", key = string.byte("2")})
+	self.QuinnMenu.Misc:MenuElement({id = "Spell", name = "Spell Priority", key = string.byte("3")})
+	Callback.Add("Tick", function() self:OnTick() end)
+	Callback.Add("Draw", function() self:OnDraw() end)
+	Callback.Add("WndMsg", function(...) self:OnWndMsg(...) end)
+	_G.PremiumPrediction:OnLoseVision(function(...) self:OnLoseVision(...) end)
+	if _G.SDK then
+		_G.SDK.Orbwalker:OnPreAttack(function(...) self:OnPreAttack(...) end)
+		_G.SDK.Orbwalker:OnPostAttackTick(function(...) self:OnPostAttack(...) end)
+	elseif _G.PremiumOrbwalker then
+		_G.PremiumOrbwalker:OnPreAttack(function(...) self:OnPreAttack(...) end)
+		_G.PremiumOrbwalker:OnPostAttack(function() self:OnPostAttack() end)
+	end
+end
+
+-- Methods
+
+function Quinn:CastQSpell(unit, mode)
+	if not (mode == "Combo" and self.QuinnMenu.Combo.UseQ:Value() or (mode == "Harass"
+		and self.QuinnMenu.Harass.UseQ:Value() or mode == "Auto")) then return false end
+	if not Manager:IsValid(unit, self.Q.range, self.MyPos)
+		or not Manager:IsReady(_Q) then return false end
+	local pred = _G.PremiumPrediction:GetPrediction(myHero, unit, self.Q)
+	if pred.CastPos and pred.HitChance > 0.15 then
+		_G.Control.CastSpell(HK_Q, pred.CastPos); return true end
+	return false
+end
+
+function Quinn:CastESpell(unit, mode)
+	if not (mode == "Combo" and self.QuinnMenu.Combo.UseE:Value() or (mode == "Harass"
+		and self.QuinnMenu.Harass.UseE:Value() or mode == "Auto")) then return false end
+	if not Manager:IsValid(unit, self.E.range, self.MyPos)
+		or not Manager:IsReady(_E) then return false end
+	_G.Control.CastSpell(HK_E, unit.pos); return true
+end
+
+function Quinn:HasPassive(unit)
+	for i = 0, unit.buffCount do
+		local buff = unit:GetBuff(i)
+		if buff and buff.count > 0 and
+			buff.name == "QuinnW" then return 1
+		end
+	end
+	return 0
+end
+
+function Quinn:IsInAutoAttackRange(unit)
+	return unit and Geometry:Distance(self.MyPos, Geometry:To2D(unit.pos)) <=
+		myHero.range + myHero.boundingRadius + (unit.boundingRadius or 35)
+end
+
+function Quinn:IsInStatusBox(pt)
+	return pt.x >= self.Window.x and pt.x <= self.Window.x + 186
+		and pt.y >= self.Window.y and pt.y <= self.Window.y + 68
+end
+
+function Quinn:GetTarget(range)
+	local units = {}
+	for i, enemy in ipairs(Manager:GetEnemyHeroes()) do
+		if Manager:IsValid(enemy, range, self.MyPos) then
+			TableInsert(units, enemy)
+		end
+	end
+	TableSort(units, function(a, b) return self:HasPassive(a) > self:HasPassive(b) and
+		Manager:CalcPhysicalDamage(myHero, a, 100) / (1 + a.health) * Manager:GetPriority(a) >
+		Manager:CalcPhysicalDamage(myHero, b, 100) / (1 + b.health) * Manager:GetPriority(b)
+	end)
+	return #units > 0 and units[1] or nil
+end
+
+-- Events
+
+function Quinn:OnPreAttack(args)
+	self.LastEnemy = args.Target
+	if self.LastEnemy.type ~= Obj_AI_Hero then return end
+	if not self.States[1] and self:HasPassive(self.LastEnemy) == 0 and
+		Manager:IsReady(_Q) and Manager:IsReady(_E) then args.Process = false
+	end
+end
+
+function Quinn:OnPostAttack()
+	if GameTimer() - self.LastAttack < 0.1 or (self.LastEnemy
+		and self.LastEnemy.type ~= Obj_AI_Hero) then return end
+	local mode = Manager:GetOrbwalkerMode()
+	if not (mode == "Combo" or mode == "Harass") then return end
+	if self.States[3] then
+		local success = self:CastQSpell(self.LastEnemy, mode)
+		if not success then self:CastESpell(self.LastEnemy, mode) end
+	else
+		local success = self:CastESpell(self.LastEnemy, mode)
+		if not success then self:CastQSpell(self.LastEnemy, mode) end
+	end
+	self.LastAttack = GameTimer()
+end
+
+function Quinn:OnLoseVision(unit)
+	if unit.dead or not self:IsInAutoAttackRange(unit) then return end
+	if Manager:IsReady(_W) and self.QuinnMenu.Auto.UseW:Value() then _G.Control.CastSpell(HK_W)
+	elseif Manager:IsReady(_Q) and not _G.PremiumPrediction:IsColliding(myHero, unit.pos, self.Q,
+		{"minion"}) then _G.Control.CastSpell(HK_Q, unit.pos) end
+end
+
+function Quinn:OnTick()
+	self.MyPos = Geometry:To2D(myHero.pos)
+	if _G.JustEvade and _G.JustEvade:Evading() or (_G.ExtLibEvade and
+		_G.ExtLibEvade.Evading) or Game.IsChatOpen() or myHero.dead then return end
+	local qTime, eTime = myHero:GetSpellData(_Q).castTime,
+		myHero:GetSpellData(_E).castTime
+	if qTime > self.LastSpell then self.LastSpell = qTime
+	elseif eTime > self.LastSpell then self.LastSpell = eTime end
+	if myHero:GetSpellData(_R).name == "QuinnRFinale"
+		or Manager:IsAutoAttacking() then return end
+	if self.QuinnMenu.Interrupter.UseE:Value() and GameTimer() -
+		self.LastSpell >= 0.5 and Manager:IsReady(_E) then
+		local enemies = Manager:GetEnemiesAround(self.MyPos, self.E.range)
+		for _, enemy in ipairs(enemies) do
+			if enemy.pathing.isDashing then
+				if self.QuinnMenu.Interrupter.DashE:Value() and self.QuinnMenu.Interrupter.Whitelist[enemy.charName]:Value()
+					and Geometry:Distance(self.MyPos, Geometry:To2D(enemy.pathing.endPos)) < Geometry:Distance(self.MyPos,
+						Geometry:To2D(enemy.pos)) then self:CastESpell(enemy, "Auto"); return end
+			elseif Geometry:Distance(self.MyPos, Geometry:To2D(enemy.pos)) < 275 and
+				self.QuinnMenu.Interrupter.MeleeE:Value() then self:CastESpell(enemy, "Auto"); return
+			end
+		end
+	end
+	local mode = Manager:GetOrbwalkerMode()
+	if not (mode == "Combo" or mode == "Harass") then return end
+	local t1, t2 = self:GetTarget(self.Q.range),
+		self:GetTarget(self.E.range)
+	if not t1 then return end
+	if self.States[1] and self:IsInAutoAttackRange(t1) then return end
+	if self.States[2] then
+		if GameTimer() - self.LastSpell < 0.5 then return end
+		if t1 and self:HasPassive(t1) == 1 or t2 and
+			self:HasPassive(t2) == 1 then return end
+	end
+	if self.States[3] then
+		local success = self:CastQSpell(t1, mode)
+		if not success then self:CastESpell(t2, mode) end
+	else
+		local success = self:CastESpell(t2, mode)
+		if not success then self:CastQSpell(t1, mode) end
+	end
+end
+
+function Quinn:OnDraw()
+	if Game.IsChatOpen() or myHero.dead then return end
+	if self.AllowMove then self.Window = PPoint(cursorPos.x +
+		self.AllowMove.x, cursorPos.y + self.AllowMove.y) end
+	local red, blue, green, white = Draw.Color(192, 220, 20, 60),
+		Draw.Color(192, 0, 191, 255), Draw.Color(192, 50, 205, 50), Draw.Color(192, 255, 255, 255)
+	DrawRect(self.Window.x, self.Window.y, 186, 68, Draw.Color(224, 23, 23, 23))
+	DrawText("AA Priority:", 15, self.Window.x + 10, self.Window.y + 5, white)
+	DrawText(tostring(self.States[1]), 15, self.Window.x + 80, self.Window.y + 5, self.States[1] and green or red)
+	DrawText("Block Spells On Passive:", 15, self.Window.x + 10, self.Window.y + 25, white)
+	DrawText(tostring(self.States[2]), 15, self.Window.x + 153, self.Window.y + 25, self.States[2] and green or red)
+	DrawText("Spell Priority:", 15, self.Window.x + 10, self.Window.y + 45, white)
+	DrawText(self.States[3] and "Q" or "E", 15, self.Window.x + 92, self.Window.y + 45, blue)
+	if self.QuinnMenu.Drawings.DrawQ:Value() then
+		DrawCircle(myHero.pos, self.Q.range, 1, Draw.Color(96, 135, 206, 235))
+	end
+	if self.QuinnMenu.Drawings.DrawE:Value() then
+		DrawCircle(myHero.pos, self.E.range, 1, Draw.Color(96, 65, 105, 225))
+	end
+	if not self.MyPos then return end
+	if self.QuinnMenu.Drawings.Track:Value() then
+		for i, enemy in ipairs(Manager:GetEnemyHeroes()) do
+			if enemy and enemy.valid and enemy.visible then
+				local dist = Geometry:DistanceSquared(self.MyPos, Geometry:To2D(enemy.pos))
+				DrawLine(myHero.pos:To2D(), enemy.pos:To2D(), 2.5,
+					dist < 4000000 and Draw.Color(128, 220, 20, 60)
+					or dist < 16000000 and Draw.Color(128, 240, 230, 140)
+					or Draw.Color(128, 152, 251, 152))
+			end
+		end
+	end
+end
+
+function Quinn:OnWndMsg(msg, wParam)
+	self.AllowMove = msg == 513 and wParam == 0 and self:IsInStatusBox(cursorPos)
+		and PPoint(self.Window.x - cursorPos.x, self.Window.y - cursorPos.y) or nil
+	if msg ~= 256 then return end
+	if self.QuinnMenu.Misc.AA:Value() then
+		self.States[1] = not self.States[1]
+	elseif self.QuinnMenu.Misc.Block:Value() then
+		self.States[2] = not self.States[2]
+	elseif self.QuinnMenu.Misc.Spell:Value() then
+		self.States[3] = not self.States[3]
 	end
 end
 
@@ -1695,7 +1934,7 @@ function Vayne:OnDraw()
 		for i, enemy in ipairs(Manager:GetEnemyHeroes()) do
 			if enemy and enemy.valid and enemy.visible then
 				local dist = Geometry:DistanceSquared(self.MyPos, Geometry:To2D(enemy.pos))
-				DrawLine(myHero.pos:To2D(), enemy.pos:To2D(), 2,
+				DrawLine(myHero.pos:To2D(), enemy.pos:To2D(), 2.5,
 					dist < 4000000 and Draw.Color(128, 220, 20, 60)
 					or dist < 16000000 and Draw.Color(128, 240, 230, 140)
 					or Draw.Color(128, 152, 251, 152))
@@ -1878,7 +2117,7 @@ function Viktor:OnDraw()
 		for i, enemy in ipairs(Manager:GetEnemyHeroes()) do
 			if enemy and enemy.valid and enemy.visible then
 				local dist = Geometry:DistanceSquared(self.MyPos, Geometry:To2D(enemy.pos))
-				DrawLine(myHero.pos:To2D(), enemy.pos:To2D(), 2,
+				DrawLine(myHero.pos:To2D(), enemy.pos:To2D(), 2.5,
 					dist < 4000000 and Draw.Color(128, 220, 20, 60)
 					or dist < 16000000 and Draw.Color(128, 240, 230, 140)
 					or Draw.Color(128, 152, 251, 152))
@@ -2001,7 +2240,7 @@ function Xerath:__init()
 		end
 	end
 	self.XerathMenu:MenuElement({id = "LaneClear", name = "LaneClear", type = MENU})
-	self.XerathMenu.LaneClear:MenuElement({id = "UseQ", name = "Use Q [Arcanopulse]", value = false, leftIcon = Icons.."XerathQ"..Png})
+	self.XerathMenu.LaneClear:MenuElement({id = "UseQ", name = "Q [Arcanopulse]", value = false, leftIcon = Icons.."XerathQ"..Png})
 	self.XerathMenu.LaneClear:MenuElement({id = "ManaQ", name = "Q: Mana Manager", value = 35, min = 0, max = 100, step = 5})
 	self.XerathMenu:MenuElement({id = "Drawings", name = "Drawings", type = MENU})
 	self.XerathMenu.Drawings:MenuElement({id = "DrawQ", name = "Q: Draw Range", value = true})
@@ -2156,7 +2395,7 @@ function Xerath:OnDraw()
 		for i, enemy in ipairs(Manager:GetEnemyHeroes()) do
 			if enemy and enemy.valid and enemy.visible then
 				local dist = Geometry:DistanceSquared(self.MyPos, Geometry:To2D(enemy.pos))
-				DrawLine(myHero.pos:To2D(), enemy.pos:To2D(), 2,
+				DrawLine(myHero.pos:To2D(), enemy.pos:To2D(), 2.5,
 					dist < 4000000 and Draw.Color(128, 220, 20, 60)
 					or dist < 16000000 and Draw.Color(128, 240, 230, 140)
 					or Draw.Color(128, 152, 251, 152))
@@ -2516,7 +2755,7 @@ function Yasuo:OnDraw()
 		for i, enemy in ipairs(Manager:GetEnemyHeroes()) do
 			if enemy and enemy.valid and enemy.visible then
 				local dist = Geometry:DistanceSquared(self.MyPos, Geometry:To2D(enemy.pos))
-				DrawLine(myHero.pos:To2D(), enemy.pos:To2D(), 2,
+				DrawLine(myHero.pos:To2D(), enemy.pos:To2D(), 2.5,
 					dist < 4000000 and Draw.Color(128, 220, 20, 60)
 					or dist < 16000000 and Draw.Color(128, 240, 230, 140)
 					or Draw.Color(128, 152, 251, 152))
