@@ -1402,13 +1402,13 @@ end
 function Ahri:OnDraw()
 	if Game.IsChatOpen() or myHero.dead then return end
 	if self.AhriMenu.Drawings.DrawQ:Value() then
-		DrawCircle(myHero.pos, self.Q.range, 1, Draw.Color(96, 127, 255, 0))
+		DrawCircle(myHero.pos, self.Q.range, 1, Draw.Color(96, 0, 191, 255))
 	end
 	if self.AhriMenu.Drawings.DrawW:Value() then
-		DrawCircle(myHero.pos, self.W.range, 1, Draw.Color(96, 127, 255, 0))
+		DrawCircle(myHero.pos, self.W.range, 1, Draw.Color(96, 30, 144, 255))
 	end
 	if self.AhriMenu.Drawings.DrawE:Value() then
-		DrawCircle(myHero.pos, self.E.range, 1, Draw.Color(96, 50, 205, 50))
+		DrawCircle(myHero.pos, self.E.range, 1, Draw.Color(96, 238, 130, 238))
 	end
 	if not self.MyPos then return end
 	if self.AhriMenu.Drawings.Track:Value() then
