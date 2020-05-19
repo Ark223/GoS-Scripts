@@ -11,6 +11,9 @@
 
 	Changelog:
 
+	v1.1.
+	+ Added Ahri
+
 	v1.0.9
 	+ Added Quinn
 
@@ -57,9 +60,10 @@
 
 --]]
 
-local GlobalVersion = 1.09
+local GlobalVersion = 1.1
 
 local Champions = {
+	["Ahri"] = function() return Ahri:__init() end,
 	["Cassiopeia"] = function() return Cassiopeia:__init() end,
 	["Quinn"] = function() return Quinn:__init() end,
 	["Vayne"] = function() return Vayne:__init() end,
@@ -69,6 +73,7 @@ local Champions = {
 }
 
 local Versions = {
+	["Ahri"] = "1.0",
 	["Cassiopeia"] = "1.0.4",
 	["Quinn"] = "1.0",
 	["Vayne"] = "1.0",
@@ -878,6 +883,10 @@ function PPoint:__tostring()
 	return "("..self.x..", "..self.y..")"
 end
 
+function PPoint:Appended(to, distance)
+	return to + (to - self):Normalized() * distance
+end
+
 function PPoint:Clone()
 	return PPoint(self)
 end
@@ -1007,7 +1016,8 @@ function Geometry:GetDynamicLinearAOEPos(points, minRange, maxRange, radius)
 	for i, p1 in ipairs(points) do
 		TableInsert(candidates, p1)
 		for j, p2 in ipairs(points) do
-			if i ~= j then TableInsert(candidates, PPoint(p1 + p2) / 2) end
+			if i ~= j then TableInsert(candidates,
+				PPoint(p1 + p2) / 2) end
 		end
 	end
 	local diffRange = maxRange - minRange
@@ -1017,8 +1027,8 @@ function Geometry:GetDynamicLinearAOEPos(points, minRange, maxRange, radius)
 				if Geometry:DistanceSquared(candidate, point) <= diffRange * diffRange then
 					local endPos, hitCount = PPoint(point):Extended(candidate, diffRange), 0
 					for k, testPoint in ipairs(points) do
-						if self:DistanceSquared(testPoint, self:ClosestPointOnSegment(
-							myPos, endPos, testPoint)) < radius * radius then hitCount = hitCount + 1
+						if self:DistanceSquared(testPoint, self:ClosestPointOnSegment(myPos,
+							endPos, testPoint)) < radius * radius then hitCount = hitCount + 1
 						end
 					end
 					if hitCount > bestCount then
@@ -1040,14 +1050,16 @@ function Geometry:GetStaticLinearAOEPos(points, range, radius)
 	for i, p1 in ipairs(points) do
 		TableInsert(candidates, p1)
 		for j, p2 in ipairs(points) do
-			if i ~= j then TableInsert(candidates, PPoint(p1 + p2) / 2) end
+			if i ~= j then TableInsert(candidates,
+				PPoint(p1 + p2) / 2) end
 		end
 	end
 	for i, candidate in ipairs(candidates) do
-		local endPos, hitCount = PPoint(myPos):Extended(candidate, range), 0
+		local endPos, hitCount =
+			PPoint(myPos):Extended(candidate, range), 0
 		for j, point in ipairs(points) do
-			if self:DistanceSquared(point, self:ClosestPointOnSegment(
-				myPos, endPos, point)) < radius * radius then hitCount = hitCount + 1
+			if self:DistanceSquared(point, self:ClosestPointOnSegment(myPos,
+				endPos, point)) < radius * radius then hitCount = hitCount + 1
 			end
 		end
 		if hitCount > bestCount then
@@ -1055,6 +1067,20 @@ function Geometry:GetStaticLinearAOEPos(points, range, radius)
 		end
 	end
 	return bestPos, bestCount
+end
+
+function Geometry:LineCircleIntersection(p1, p2, circle, radius)
+	local d1, d2 = PPoint(p2 - p1), PPoint(p1 - circle)
+	local a = d1:MagnitudeSquared()
+	local b = 2 * self:DotProduct(d1, d2)
+	local c = d2:MagnitudeSquared() - (radius * radius)
+	local delta = b * b - 4 * a * c
+	if delta >= 0 then
+		local sqr = MathSqrt(delta)
+		local t1, t2 = (-b + sqr) / (2 * a), (-b - sqr) / (2 * a)
+		return PPoint(p1 + d1 * t1), PPoint(p1 + d1 * t2)
+	end
+	return nil, nil
 end
 
 function Geometry:RotateAroundPoint(p1, p2, theta)
@@ -1070,6 +1096,10 @@ function Geometry:To3D(pos, y)
 	return Vector(pos.x, y or myHero.pos.y, pos.y)
 end
 
+function Geometry:ToScreen(pos, y)
+	return Vector(self:To3D(pos, y)):To2D()
+end
+
 --[[
 	┌┬┐┌─┐┌┐┌┌─┐┌─┐┌─┐┬─┐
 	│││├─┤│││├─┤│ ┬├┤ ├┬┘
@@ -1082,21 +1112,17 @@ function Manager:__init()
 end
 
 function Manager:CalcMagicalDamage(source, target, amount, time)
-	local mr = target.magicResist
-	local value = 100 / (100 + (mr * source.magicPenPercent) - source.magicPen)
-	if mr < 0 then value = 2 - 100 / (100 - mr)
-	elseif (mr * source.magicPenPercent) - source.magicPen < 0 then value = 1 end
-	return MathMax(0, MathFloor(value * amount) - target.hpRegen * (time or 0))
+	local mr = target.magicResist * source.magicPenPercent - source.magicPen
+	local val = mr < 0 and 2 - 100 / (100 - mr) or 100 / (100 + mr)
+	return MathMax(0, MathFloor(val * amount) - target.hpRegen * (time or 0))
 end
 
 function Manager:CalcPhysicalDamage(source, target, amount, time)
-	local armor, bonusArmor = target.armor, target.bonusArmor
-	local armorPenPercent, bonusArmorPenPercent = source.armorPenPercent, source.bonusArmorPenPercent
-	local armorPenFlat = source.armorPen * (0.6 + (0.4 * (target.levelData.lvl / 18)))
-	local value = 100 / (100 + (armor * armorPenPercent) - (bonusArmor * (1 - bonusArmorPenPercent)) - armorPenFlat)
-	if armor < 0 then value = 2 - 100 / (100 - armor)
-	elseif (armor * armorPenPercent) - (bonusArmor * (1 - bonusArmorPenPercent)) - armorPenFlat < 0 then value = 1 end
-	return MathMax(0, MathFloor(value * amount) - target.hpRegen * (time or 0))
+	local ar = target.armor * source.armorPenPercent -
+		(target.bonusArmor * (1 - source.bonusArmorPenPercent)) -
+		(source.armorPen * (0.6 + (0.4 * (target.levelData.lvl / 18))))
+	local val = ar < 0 and 2 - 100 / (100 - ar) or 100 / (100 + ar)
+	return MathMax(0, MathFloor(val * amount) - target.hpRegen * (time or 0))
 end
 
 function Manager:CopyTable(tab)
@@ -1104,6 +1130,15 @@ function Manager:CopyTable(tab)
 	for key, val in pairs(tab) do
 		copy[key] = val end
 	return copy
+end
+
+function Manager:DrawPolygon(poly, width, color)
+	local size = #poly; if size < 3 then
+		return end; local j = size
+	for i = 1, size do
+		DrawLine(poly[i].x, poly[i].y, poly[j].x,
+			poly[j].y, width, color); j = i
+	end
 end
 
 function Manager:GetAllyHeroes()
@@ -1139,8 +1174,9 @@ function Manager:GetEnemiesAround(pos, range)
 end
 
 function Manager:GetSpellCooldown(spell)
-	return GameCanUseSpell(spell) == ONCOOLDOWN and myHero:GetSpellData(spell).currentCd or
-			GameCanUseSpell(spell) == READY and 0 or MathHuge
+	return GameCanUseSpell(spell) == ONCOOLDOWN
+		and myHero:GetSpellData(spell).currentCd or
+		GameCanUseSpell(spell) == READY and 0 or MathHuge
 end
 
 function Manager:GetMinionsAround(pos, range, type)
@@ -1185,7 +1221,8 @@ function Manager:GetPriority(unit)
 end
 
 function Manager:GetSummonerLevel()
-	return myHero.levelData.lvl > 18 and 1 or myHero.levelData.lvl
+	return myHero.levelData.lvl > 18
+		and 1 or myHero.levelData.lvl
 end
 
 function Manager:IsAutoAttacking()
@@ -1214,6 +1251,277 @@ function Manager:IsValid(unit, range, pos)
 	local pos = pos or Geometry:To2D(myHero.pos)
 	return unit and unit.valid and unit.visible and unit.health > 0 and unit.maxHealth > 5
 		and Geometry:DistanceSquared(pos, Geometry:To2D(unit.pos)) <= range * range
+end
+
+--[[
+	┌─┐┬ ┬┬─┐┬
+	├─┤├─┤├┬┘│
+	┴ ┴┴ ┴┴└─┴
+--]]
+
+class "Ahri"
+
+function Ahri:__init()
+	self.QueueTimer = 0
+	self.Q = {accel = -3200, speed = 2500, minSpeed = 400, maxSpeed = 2500,
+		range = 880, delay = 0.25, radius = 100, collision = nil, type = "linear"}
+	self.Q2 = {accel = 1900, speed = 60, minSpeed = 60, maxSpeed = 2500,
+		range = 25000, delay = 0, radius = 100, collision = nil, type = "linear"}
+	self.W, self.E, self.R = {range = 700}, {speed = 1500, range = 975, delay = 0.25,
+		radius = 60, collision = {"minion"}, type = "linear"}, {range = 450, radius = 600}
+	self.OrbData = {spell = "", pos = nil, sPos = nil, ePos = nil, timer = 0, type = 0}
+	self.Ignite = myHero:GetSpellData(SUMMONER_1).name == "SummonerDot" and {SUMMONER_1, HK_SUMMONER_1} or
+		myHero:GetSpellData(SUMMONER_2).name == "SummonerDot" and {SUMMONER_2, HK_SUMMONER_2} or nil
+	self.AhriMenu = MenuElement({type = MENU, id = "Ahri", name = "Premium Ahri v" .. Versions[myHero.charName]})
+	self.AhriMenu:MenuElement({id = "Combo", name = "Combo", type = MENU})
+	self.AhriMenu.Combo:MenuElement({id = "UseQ", name = "Q [Orb of Deception]", value = true, leftIcon = Icons.."AhriQ"..Png})
+	self.AhriMenu.Combo:MenuElement({id = "UseW", name = "W [Fox-Fire]", value = true, leftIcon = Icons.."AhriW"..Png})
+	self.AhriMenu.Combo:MenuElement({id = "UseE", name = "E [Charm]", value = true, leftIcon = Icons.."AhriE"..Png})
+	self.AhriMenu.Combo:MenuElement({id = "UseR", name = "R [Spirit Rush]", value = true, leftIcon = Icons.."AhriR"..Png})
+	self.AhriMenu.Combo:MenuElement({id = "MaxHPR", name = "R: Maximum Health [%]", value = 35, min = 1, max = 100, step = 1})
+	self.AhriMenu:MenuElement({id = "Harass", name = "Harass", type = MENU})
+	self.AhriMenu.Harass:MenuElement({id = "UseQ", name = "Q [Orb of Deception]", value = true, leftIcon = Icons.."AhriQ"..Png})
+	self.AhriMenu.Harass:MenuElement({id = "UseW", name = "W [Fox-Fire]", value = true, leftIcon = Icons.."AhriW"..Png})
+	self.AhriMenu.Harass:MenuElement({id = "UseE", name = "E [Charm]", value = true, leftIcon = Icons.."AhriE"..Png})
+	self.AhriMenu:MenuElement({id = "LaneClear", name = "LaneClear", type = MENU})
+	self.AhriMenu.LaneClear:MenuElement({id = "UseQ", name = "Q [Orb of Deception]", value = true, leftIcon = Icons.."AhriQ"..Png})
+	self.AhriMenu.LaneClear:MenuElement({id = "ManaQ", name = "Q: Mana Manager", value = 35, min = 0, max = 100, step = 5})
+	self.AhriMenu:MenuElement({id = "Drawings", name = "Drawings", type = MENU})
+	self.AhriMenu.Drawings:MenuElement({id = "DrawQ", name = "Q: Draw Range", value = true})
+	self.AhriMenu.Drawings:MenuElement({id = "DrawW", name = "W: Draw Range", value = true})
+	self.AhriMenu.Drawings:MenuElement({id = "DrawE", name = "E: Draw Range", value = true})
+	self.AhriMenu.Drawings:MenuElement({id = "DrawOrb", name = "Orb: Draw Path", value = true})
+	self.AhriMenu.Drawings:MenuElement({id = "Track", name = "Track Enemies", value = true})
+	self.AhriMenu:MenuElement({id = "HitChance", name = "HitChance", type = MENU})
+	self.AhriMenu.HitChance:MenuElement({id = "HCQ", name = "Q: HitChance", value = 60, min = 0, max = 100, step = 5})
+	self.AhriMenu.HitChance:MenuElement({id = "HCE", name = "E: HitChance", value = 80, min = 0, max = 100, step = 5})
+	if self.Ignite then
+		self.AhriMenu:MenuElement({id = "Misc", name = "Misc", type = MENU})
+		self.AhriMenu.Misc:MenuElement({id = "UseIgnite", name = "Use Ignite",
+			value = true, leftIcon = Icons.."Ignite"..Png})
+	end
+	Callback.Add("Tick", function() self:OnTick() end)
+	Callback.Add("Draw", function() self:OnDraw() end)
+end
+
+-- Methods
+
+function Ahri:CalculateOrbPosition()
+	local data = self.OrbData.type == 1 and self.Q or self.Q2
+	local t = GameTimer() - self.OrbData.timer - data.delay
+	if t < 0 then return self.OrbData.sPos end
+	local sPos, ePos, x = self.OrbData.sPos,
+		self.OrbData.ePos, data.speed * t
+	local t1 = (data.accel > 0 and data.maxSpeed or
+		data.minSpeed - data.speed) / data.accel
+	if t <= t1 then
+		x = data.speed * t + 0.5 * data.accel * t ^ 2
+	else
+		x = data.speed * t1 + 0.5 * data.accel * t1 ^ 2 + (t - t1) *
+			(data.accel < 0 and data.maxSpeed or data.minSpeed)
+	end
+	return sPos:Extended(ePos, MathMax(0, MathMin(
+		Geometry:Distance(sPos, ePos), x)))
+end
+
+function Ahri:CircleToPolygon(center, radius, quality, step)
+	local height, result = myHero.pos.y, {}
+	for i = 0, (quality or 16) - 1 do
+		local angle = 2 * MathPi / quality * (i + 0.5 + step)
+		local cx, cy = center.x + radius * MathCos(
+			angle), center.y + radius * MathSin(angle)
+		TableInsert(result, Vector(cx, height, cy):To2D())
+	end
+	return result
+end
+
+function Ahri:CreateOrbPath(startPos, endPos)
+	local p1, p2, result = startPos,
+		endPos:Appended(startPos, 80), {}
+	for i = 1, 2 do
+		for j = -3, 3 do TableInsert(result, Geometry:ToScreen(
+			Geometry:RotateAroundPoint(p1, p2, MathRad(j * 30)))) end
+		p1, p2 = endPos, startPos:Appended(endPos, 80)
+	end
+	return result
+end
+
+function Ahri:GetTarget(range)
+	local units = {}
+	for i, enemy in ipairs(Manager:GetEnemyHeroes()) do
+		if Manager:IsValid(enemy, range, self.MyPos) then
+			TableInsert(units, enemy)
+		end
+	end
+	TableSort(units, function(a, b) return
+		Manager:CalcMagicalDamage(myHero, a, 100) / (1 + a.health) * Manager:GetPriority(a) >
+		Manager:CalcMagicalDamage(myHero, b, 100) / (1 + b.health) * Manager:GetPriority(b)
+	end)
+	return #units > 0 and units[1] or nil
+end
+
+function Ahri:ProcessOrb()
+	local spell = myHero.activeSpell
+	if spell and spell.valid and spell.name == "AhriOrbofDeception"
+		and self.OrbData.spell ~= (spell.name .. spell.placementPos.z) then
+		local p1, p2 = Geometry:To2D(spell.startPos), Geometry:To2D(spell.placementPos)
+		self.OrbData = {
+			spell = spell.name .. spell.placementPos.z, pos = p1, sPos = p1,
+			ePos = p1:Extended(p2, self.Q.range), timer = GameTimer(), type = 1
+		}
+	end
+	if not self.OrbData.pos then return end
+	if self.OrbData.type == 1 and Geometry:DistanceSquared(
+		self.OrbData.pos, self.OrbData.ePos) <= 625 then
+		self.OrbData = {
+			spell = self.OrbData.spell, pos = self.OrbData.ePos, sPos =
+			self.OrbData.ePos, ePos = self.MyPos, timer = GameTimer(), type = 2
+		}
+	elseif self.OrbData.type == 2 then
+		self.OrbData.ePos = self.MyPos
+		if Geometry:DistanceSquared(self.OrbData.pos, self.OrbData.ePos)
+			<= 625 then self.OrbData.pos, self.OrbData.timer = nil, 0
+		end
+	end
+end
+
+-- Logic
+
+function Ahri:OnTick()
+	self.MyPos = Geometry:To2D(myHero.pos)
+	if self.AhriMenu.Drawings.DrawOrb:Value() then self:ProcessOrb() end
+	if _G.JustEvade and _G.JustEvade:Evading() or (_G.ExtLibEvade and _G.ExtLibEvade.Evading)
+		or Manager:IsAutoAttacking() or Game.IsChatOpen() or myHero.dead then return end
+	local mode = Manager:GetOrbwalkerMode(); self:AutoIgnite()
+	if mode == "LaneClear" then self:Clear(); return end
+	local tQW, tE = self:GetTarget(self.Q.range), self:GetTarget(self.E.range)
+	if mode == "Combo" then self:Combo(tQW, tE, self:GetTarget(self.R.range + 550))
+	elseif mode == "Harass" then self:Harass(tQW, tE) end
+end
+
+function Ahri:OnDraw()
+	if Game.IsChatOpen() or myHero.dead then return end
+	if self.AhriMenu.Drawings.DrawQ:Value() then
+		DrawCircle(myHero.pos, self.Q.range, 1, Draw.Color(96, 127, 255, 0))
+	end
+	if self.AhriMenu.Drawings.DrawW:Value() then
+		DrawCircle(myHero.pos, self.W.range, 1, Draw.Color(96, 127, 255, 0))
+	end
+	if self.AhriMenu.Drawings.DrawE:Value() then
+		DrawCircle(myHero.pos, self.E.range, 1, Draw.Color(96, 50, 205, 50))
+	end
+	if not self.MyPos then return end
+	if self.AhriMenu.Drawings.Track:Value() then
+		for i, enemy in ipairs(Manager:GetEnemyHeroes()) do
+			if enemy and enemy.valid and enemy.visible then
+				local dist = Geometry:DistanceSquared(self.MyPos, Geometry:To2D(enemy.pos))
+				DrawLine(myHero.pos:To2D(), enemy.pos:To2D(), 2.5,
+					dist < 4000000 and Draw.Color(128, 220, 20, 60)
+					or dist < 16000000 and Draw.Color(128, 240, 230, 140)
+					or Draw.Color(128, 152, 251, 152))
+			end
+		end
+	end
+	if not self.AhriMenu.Drawings.DrawOrb:Value()
+		or self.OrbData.timer == 0 then return end
+	self.OrbData.pos = self:CalculateOrbPosition()
+	Manager:DrawPolygon(self:CircleToPolygon(self.OrbData.pos,
+		80, 4, 0), 2.5, Draw.Color(255, 0, 191, 255))
+	Manager:DrawPolygon(self:CircleToPolygon(self.OrbData.pos,
+		80, 4, -0.5), 2.5, Draw.Color(255, 0, 255, 255))
+	Manager:DrawPolygon(self:CreateOrbPath(self.OrbData.pos,
+		self.OrbData.ePos), 2, Draw.Color(96, 255, 255, 255))
+end
+
+function Ahri:AutoIgnite()
+	if not self.AhriMenu.Misc then return end
+	if self.Ignite ~= nil and Manager:IsReady(self.Ignite[1])
+		and self.AhriMenu.Misc.UseIgnite:Value() then
+		local units = Manager:GetEnemiesAround(self.MyPos, 600)
+		for i, enemy in ipairs(units) do
+			if Geometry:Distance(self.MyPos, Geometry:To2D(enemy.pos)) > 550 then
+				local dmg = 50 + 20 * Manager:GetSummonerLevel()
+				if dmg >= (enemy.health + enemy.hpRegen * 3) then
+					_G.Control.CastSpell(self.Ignite[2], enemy.pos); break
+				end
+			end
+		end
+	end
+end
+
+function Ahri:Clear()
+	if GameTimer() - self.QueueTimer <= 0.25 then return end
+	if Manager:IsReady(_Q) and self.AhriMenu.LaneClear.UseQ:Value() and
+		Manager:GetPercentMana() > self.AhriMenu.LaneClear.ManaQ:Value() then
+		local minions, points = Manager:GetMinionsAround(self.MyPos, self.Q.range), {}
+		if #minions < 5 then return end
+		for i, minion in ipairs(minions) do
+			local predPos = _G.PremiumPrediction:GetFastPrediction(myHero, minion, self.Q)
+			if predPos then TableInsert(points, Geometry:To2D(predPos)) end
+		end
+		local pos, count = Geometry:GetStaticLinearAOEPos(
+			points, self.Q.range, self.Q.radius)
+		if pos and count >= 5 then
+			_G.Control.CastSpell(HK_Q, Geometry:To3D(pos))
+		end
+	end
+end
+
+function Ahri:Combo(targetQW, targetE, targetR)
+	if GameTimer() - self.QueueTimer <= 0.25 then return end
+	if targetQW and Manager:IsReady(_Q) and self.AhriMenu.Combo.UseQ:Value() then
+		local pred = _G.PremiumPrediction:GetPrediction(myHero, targetQW, self.Q)
+		if pred.PredPos and pred.HitChance >= self.AhriMenu.HitChance.HCQ:Value() / 1000 then
+			self.QueueTimer = GameTimer(); _G.Control.CastSpell(HK_Q, pred.PredPos)
+		end
+	end
+	if targetQW and Manager:IsReady(_W) and self.AhriMenu.Combo.UseW:Value()
+		and Geometry:DistanceSquared(self.MyPos, Geometry:To2D(targetQW.pos)) <
+			self.W.range * self.W.range then _G.Control.CastSpell(HK_W)
+	end
+	if targetE and Manager:IsReady(_E) and self.AhriMenu.Combo.UseE:Value() then
+		local pred = _G.PremiumPrediction:GetAOEPrediction(myHero, targetE, self.E)
+		if pred.CastPos and pred.HitChance >= self.AhriMenu.HitChance.HCE:Value() / 1000 then
+			self.QueueTimer = GameTimer(); _G.Control.CastSpell(HK_E, pred.CastPos)
+		end
+	end
+	if targetR and Manager:IsReady(_R) and self.AhriMenu.Combo.UseR:Value() and
+		Manager:GetPercentHealth(targetR) >= self.AhriMenu.Combo.MaxHPR:Value() then
+		local targetPos = Geometry:To2D(targetR.pos)
+		if self.OrbData.timer == 0 then
+			local castPos = targetPos - PPoint(targetPos -
+				self.MyPos):Perpendicular():Normalized() * 450
+			_G.Control.CastSpell(HK_R, Geometry:To3D(castPos)); return
+		end
+		local p1, p2 = Geometry:LineCircleIntersection(
+			targetPos, self.OrbData.pos, self.MyPos, self.R.range)
+		if not p1 then return end
+		local positions = Geometry:DistanceSquared(targetPos, p1) >
+			Geometry:DistanceSquared(targetPos, p2) and {p1, p2} or {p2, p1}
+		for i = 1, 2 do if Geometry:Distance(targetPos, positions[i]) < self.R.radius then
+			_G.Control.CastSpell(HK_R, Geometry:To3D(positions[i])); return end
+		end
+	end
+end
+
+function Ahri:Harass(targetQW, targetE)
+	if GameTimer() - self.QueueTimer <= 0.25 then return end
+	if targetQW and Manager:IsReady(_Q) and self.AhriMenu.Harass.UseQ:Value() then
+		local pred = _G.PremiumPrediction:GetPrediction(myHero, targetQW, self.Q)
+		if pred.PredPos and pred.HitChance >= self.AhriMenu.HitChance.HCQ:Value() / 1000 then
+			self.QueueTimer = GameTimer(); _G.Control.CastSpell(HK_Q, pred.PredPos)
+		end
+	end
+	if targetQW and Manager:IsReady(_W) and self.AhriMenu.Harass.UseW:Value()
+		and Geometry:DistanceSquared(self.MyPos, Geometry:To2D(targetQW.pos)) <
+			self.W.range * self.W.range then _G.Control.CastSpell(HK_W)
+	end
+	if targetE and Manager:IsReady(_E) and self.AhriMenu.Harass.UseE:Value() then
+		local pred = _G.PremiumPrediction:GetAOEPrediction(myHero, targetE, self.E)
+		if pred.CastPos and pred.HitChance >= self.AhriMenu.HitChance.HCE:Value() / 1000 then
+			self.QueueTimer = GameTimer(); _G.Control.CastSpell(HK_E, pred.CastPos)
+		end
+	end
 end
 
 --[[
@@ -1305,8 +1613,8 @@ end
 
 function Cassiopeia:PredictHealth(unit, mod)
 	local t = self:CalcFangArrivalTime(unit) * (mod or 1)
-	return _G.SDK and _G.SDK.HealthPrediction:GetPrediction(unit, t) or
-		_G.PremiumOrbwalker and _G.PremiumOrbwalker:GetHealthPrediction(unit, t) or unit.health
+	return _G.SDK and _G.SDK.HealthPrediction:GetPrediction(unit, t) or _G.PremiumOrbwalker
+		and _G.PremiumOrbwalker:GetHealthPrediction(unit, t) or unit.health
 end
 
 -- Events
@@ -1538,7 +1846,7 @@ function Quinn:CastQSpell(unit, mode)
 	if not Manager:IsValid(unit, self.Q.range, self.MyPos)
 		or not Manager:IsReady(_Q) then return false end
 	local pred = _G.PremiumPrediction:GetPrediction(myHero, unit, self.Q)
-	if pred.CastPos and pred.HitChance > 0.15 then
+	if pred.CastPos and pred.HitChance > 0.25 then
 		_G.Control.CastSpell(HK_Q, pred.CastPos); return true end
 	return false
 end
@@ -1771,8 +2079,9 @@ end
 function Vayne:BoltsCount(unit)
 	for i = 0, unit.buffCount do
 		local buff = unit:GetBuff(i)
-		if buff and buff.count > 0 and self.HasSilverBolts(buff.name) then
-			return buff.count
+		if buff and buff.count > 0 and
+			self.HasSilverBolts(buff.name) then
+				return buff.count
 		end
 	end
 	return 0
@@ -1781,8 +2090,9 @@ end
 function Vayne:HasStealthBuff()
 	for i = 0, myHero.buffCount do
 		local buff = myHero:GetBuff(i)
-		if buff and buff.count > 0 and self.IsStealthed(buff.name) then
-			return true
+		if buff and buff.count > 0 and
+			self.IsStealthed(buff.name) then
+				return true
 		end
 	end
 	return false
@@ -1791,25 +2101,26 @@ end
 function Vayne:HasTumbleBonus()
 	for i = 0, myHero.buffCount do
 		local buff = myHero:GetBuff(i)
-		if buff and buff.count > 0 and self.IsTumbleBonus(buff.name) then
-			return true
+		if buff and buff.count > 0 and
+			self.IsTumbleBonus(buff.name) then
+				return true
 		end
 	end
 	return false
 end
 
 function Vayne:CalcCondemnArrivalTime(unit, pos)
-	return Geometry:Distance(pos, Geometry:To2D(unit.pos)) / self.E.speed + self.E.delay
+	return Geometry:Distance(pos, Geometry:To2D(
+		unit.pos)) / self.E.speed + self.E.delay
 end
 
 function Vayne:GetBestTumblePos(target)
 	local mPos = PPoint(self.MyPos):Extended(
 		Geometry:To2D(mousePos), self.Q.range)
 	if target and Manager:IsReady(_E) then
-		for i = 10, 120, 10 do
+		for i = 40, 140, 10 do
 			local theta = MathRad(i)
-			repeat
-				theta = theta * -1
+			repeat theta = theta * -1
 				local pos = Geometry:RotateAroundPoint(self.MyPos, mPos, theta)
 				if Geometry:Distance(pos, Geometry:To2D(target.pos)) <= self.E.range
 					and self:IsAbleToStun(target, pos) then
@@ -1876,7 +2187,8 @@ function Vayne:UseE()
 		end
 		local killSteal = false
 		if self.VayneMenu.KillSteal.UseE:Value() then
-			local lvW, lvE = myHero:GetSpellData(_W).level or 1, myHero:GetSpellData(_E).level or 1
+			local lvW, lvE = myHero:GetSpellData(_W).level
+				or 1, myHero:GetSpellData(_E).level or 1
 			local rawDmg = 35 * lvE + 15
 			rawDmg = self:BoltsCount(unit) < 2 and rawDmg or
 				rawDmg + (15 * lvW + 35 + (0.025 * lvW + 0.015) * unit.maxHealth)
@@ -1887,8 +2199,7 @@ function Vayne:UseE()
 		if not Manager:IsAutoAttacking() and (self:IsAbleToStun(unit) and
 			((mode == "Combo" and self.VayneMenu.Combo.UseE:Value()) or (mode == "Harass" and
 				self.VayneMenu.Harass.UseE:Value()) or self.VayneMenu.Auto.UseE:Value())) or killSteal then
-					self.QueueTimer = GameTimer()
-					_G.Control.CastSpell(HK_E, unit.pos); break
+					self.QueueTimer = GameTimer(); _G.Control.CastSpell(HK_E, unit.pos); break
 		end
 	end
 end
@@ -2453,9 +2764,11 @@ function Xerath:Clear()
 			local predPos = _G.PremiumPrediction:GetFastPrediction(myHero, minion, self.Q)
 			if predPos then TableInsert(points, Geometry:To2D(predPos)) end
 		end
-		local pos, count = Geometry:GetStaticLinearAOEPos(points, self.Q.range, self.Q.radius)
+		local pos, count = Geometry:GetStaticLinearAOEPos(
+			points, self.Q.range, self.Q.radius)
 		if not self.ActiveQ then
-			if count >= 6 then ControlKeyDown(HK_Q); self.QueueTimer = GameTimer() end; return
+			if count >= 6 then ControlKeyDown(HK_Q);
+				self.QueueTimer = GameTimer() end; return
 		end
 		if not pos then return end
 		TableSort(points, function(a, b) return
@@ -2812,8 +3125,8 @@ function Yasuo:Clear()
 					myHero, minion, hasQ3 and self.Q3 or self.Q)
 				if predPos then TableInsert(points, Geometry:To2D(predPos)) end
 			end
-			local pos = Geometry:GetStaticLinearAOEPos(points, hasQ3 and
-				self.Q3.range or self.Q.range, hasQ3 and self.Q3.radius or self.Q.radius)
+			local pos = Geometry:GetStaticLinearAOEPos(points, hasQ3 and self.Q3.range
+				or self.Q.range, hasQ3 and self.Q3.radius or self.Q.radius)
 			if pos then
 				self.QueueTimer = GameTimer()
 				_G.Control.CastSpell(HK_Q, Geometry:To3D(pos))
@@ -2936,4 +3249,3 @@ function Yasuo:Harass(targetQ, targetE, targetS)
 		end
 	end
 end
-
