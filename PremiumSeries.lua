@@ -1339,8 +1339,9 @@ function Ahri:CreateOrbPath(startPos, endPos)
 	local p1, p2, result = startPos,
 		endPos:Appended(startPos, 80), {}
 	for i = 1, 2 do
-		for j = -3, 3 do TableInsert(result, Geometry:ToScreen(
-			Geometry:RotateAroundPoint(p1, p2, MathRad(j * 30)))) end
+		for j = -4, 4 do TableInsert(result,
+			Geometry:ToScreen(Geometry:RotateAroundPoint(
+				p1, p2, MathRad(j * 22.5)):Round())) end
 		p1, p2 = endPos, startPos:Appended(endPos, 80)
 	end
 	return result
