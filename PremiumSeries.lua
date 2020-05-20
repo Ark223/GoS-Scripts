@@ -1899,6 +1899,9 @@ end
 function Quinn:OnPreAttack(args)
 	self.LastEnemy = args.Target
 	if self.LastEnemy.type ~= Obj_AI_Hero then return end
+	if myHero:GetSpellData(_R).name == "QuinnRFinale" then
+		_G.Control.CastSpell(HK_R); args.Process = false; return
+	end
 	if not self.States[1] and self:HasPassive(self.LastEnemy) == 0 and
 		Manager:IsReady(_Q) and Manager:IsReady(_E) then args.Process = false
 	end
