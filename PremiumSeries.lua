@@ -1486,7 +1486,7 @@ function Ahri:Combo(targetQW, targetE, targetR)
 		end
 	end
 	if targetR and Manager:IsReady(_R) and self.AhriMenu.Combo.UseR:Value() and
-		Manager:GetPercentHealth(targetR) >= self.AhriMenu.Combo.MaxHPR:Value() then
+		Manager:GetPercentHealth(targetR) <= self.AhriMenu.Combo.MaxHPR:Value() then
 		local targetPos = Geometry:To2D(targetR.pos)
 		if self.OrbData.timer == 0 then
 			local castPos = targetPos - PPoint(targetPos -
@@ -2482,7 +2482,7 @@ function Viktor:Combo(targetQ, targetW, targetR)
 		end
 	end
 	if targetR and Manager:IsReady(_R) and self.ViktorMenu.Combo.UseR:Value() and
-		Manager:GetPercentHealth(targetR) >= self.ViktorMenu.Combo.MaxHPR:Value() then
+		Manager:GetPercentHealth(targetR) <= self.ViktorMenu.Combo.MaxHPR:Value() then
 		local pred = _G.PremiumPrediction:GetAOEPrediction(myHero, targetR, self.R)
 		if pred.CastPos and pred.HitChance >= self.ViktorMenu.HitChance.HCR:Value() / 1000 and
 			pred.HitCount >= self.ViktorMenu.Combo.MinR:Value() then
