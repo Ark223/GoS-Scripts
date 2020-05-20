@@ -22,7 +22,7 @@ local function ReadFile(file)
 	txt:close(); return result
 end
 
-local Version = 1.01
+local Version = 1.02
 local function AutoUpdate()
 	DownloadFile("https://raw.githubusercontent.com/Ark223/GoS-Scripts/master/PremiumOrbwalkerWIP.version", SCRIPT_PATH .. "PremiumOrbwalkerWIP.version")
 	if tonumber(ReadFile(SCRIPT_PATH .. "PremiumOrbwalkerWIP.version")) > Version then
@@ -250,7 +250,7 @@ function PremiumOrb:__init()
 		["Aphelios"] = false, ["Ashe"] = false, ["AurelionSol"] = false, ["Azir"] = true, ["Bard"] = false, ["Blitzcrank"] = true, ["Brand"] = false,
 		["Braum"] = true, ["Caitlyn"] = false, ["Camille"] = true, ["Cassiopeia"] = false, ["Chogath"] = true, ["Corki"] = false, ["Darius"] = true,
 		["Diana"] = true, ["DrMundo"] = true, ["Draven"] = false, ["Ekko"] = true, ["Elise"] = false, ["Evelynn"] = true, ["Ezreal"] = false,
-		["Fiddlesticks"] = false, ["Fiora"] = true, ["Fizz"] = true, ["Galio"] = true, ["Gangplank"] = true, ["Garen"] = true, ["Gnar"] = false,
+		["FiddleSticks"] = false, ["Fiora"] = true, ["Fizz"] = true, ["Galio"] = true, ["Gangplank"] = true, ["Garen"] = true, ["Gnar"] = false,
 		["Gragas"] = true, ["Graves"] = false, ["Hecarim"] = true, ["Heimerdinger"] = false, ["Illaoi"] = true, ["Irelia"] = true, ["Ivern"] = false,
 		["Janna"] = false, ["JarvanIV"] = true, ["Jax"] = true, ["Jayce"] = false, ["Jhin"] = false, ["Jinx"] = false, ["Kaisa"] = false,
 		["Kalista"] = false, ["Karma"] = false, ["Karthus"] = false, ["Kassadin"] = true, ["Katarina"] = true, ["Kayle"] = false, ["Kayn"] = true,
@@ -280,7 +280,7 @@ function PremiumOrb:__init()
 		["Aatrox"] = 3, ["Ahri"] = 4, ["Akali"] = 4, ["Alistar"] = 1, ["Amumu"] = 1, ["Anivia"] = 4, ["Annie"] = 4, ["Aphelios"] = 5,
 		["Ashe"] = 5, ["AurelionSol"] = 4, ["Azir"] = 4, ["Bard"] = 3, ["Blitzcrank"] = 1, ["Brand"] = 4, ["Braum"] = 1, ["Caitlyn"] = 5,
 		["Camille"] = 3, ["Cassiopeia"] = 4, ["Chogath"] = 1, ["Corki"] = 5, ["Darius"] = 2, ["Diana"] = 4, ["DrMundo"] = 1, ["Draven"] = 5,
-		["Ekko"] = 4, ["Elise"] = 3, ["Evelynn"] = 4, ["Ezreal"] = 5, ["Fiddlesticks"] = 3, ["Fiora"] = 3, ["Fizz"] = 4, ["Galio"] = 1,
+		["Ekko"] = 4, ["Elise"] = 3, ["Evelynn"] = 4, ["Ezreal"] = 5, ["FiddleSticks"] = 3, ["Fiora"] = 3, ["Fizz"] = 4, ["Galio"] = 1,
 		["Gangplank"] = 4, ["Garen"] = 1, ["Gnar"] = 1, ["Gragas"] = 2, ["Graves"] = 4, ["Hecarim"] = 2, ["Heimerdinger"] = 3, ["Illaoi"] = 3,
 		["Irelia"] = 3, ["Ivern"] = 1, ["Janna"] = 2, ["JarvanIV"] = 3, ["Jax"] = 3, ["Jayce"] = 4, ["Jhin"] = 5, ["Jinx"] = 5, ["Kaisa"] = 5,
 		["Kalista"] = 5, ["Karma"] = 4, ["Karthus"] = 4, ["Kassadin"] = 4, ["Katarina"] = 4, ["Kayle"] = 4, ["Kayn"] = 4, ["Kennen"] = 4,
@@ -305,7 +305,6 @@ function PremiumOrb:__init()
 	}
 	self.ShouldWaitToMove = {
 		["Caitlyn"] = function() return self:HasBuff(myHero, {"CaitlynAceintheHole"}) > 0 end,
-		["Fiddlesticks"] = function() return self:HasBuff(myHero, {"Drain", "Crowstorm"}) > 0 end,
 		["Galio"] = function() return self:HasBuff(myHero, {"GalioR"}) > 0 end,
 		["Janna"] = function() return self:HasBuff(myHero, {"ReapTheWhirlwind"}) > 0 end,
 		["Karthus"] = function() return self:HasBuff(myHero, {"karthusfallenonecastsound"}) > 0 end,
