@@ -250,8 +250,8 @@ local WindwallBlockSpells = {
 		["EzrealR"] = {name = "EzrealR", displayName = "Trueshot Barrage", slot = "R", type = "linear",
 			speed = 2000, range = 12500, delay = 1, radius = 160, cc = false, collision = false, extend = true},
 	},
-	["Fiddlesticks"] = {
-		["FiddlesticksDarkWind"] = {name = "FiddlesticksE", displayName = "Dark Wind", slot = "E", type = "targeted", cc = true},
+	["FiddleSticks"] = {
+		["FiddleSticksQ"] = {name = "FiddlesticksQ", displayName = "Terrify", slot = "Q", type = "targeted", cc = true},
 	},
 	["Fiora"] = {
 		["FioraW"] = {name = "FioraW", displayName = "Riposte", slot = "W", type = "linear",
@@ -672,8 +672,9 @@ local InterrupterSpells = {
 	["Caitlyn"] = {
 		["CaitlynAceintheHole"] = {name = "CaitlynR", displayName = "Ace in the Hole", slot = "R", danger = 3}
 	},
-	["Fiddlesticks"] = {
-		["Drain"] = {name = "FiddlesticksW", displayName = "Drain", slot = "W", danger = 2}
+	["FiddleSticks"] = {
+		["FiddleSticksW"] = {name = "FiddlesticksW", displayName = "Bountiful Harvest", slot = "W", danger = 2},
+		["FiddleSticksR"] = {name = "FiddlesticksR", displayName = "Crowstorm", slot = "R", danger = 3}
 	},
 	["Galio"] = {
 		["GalioW"] = {name = "GalioW", displayName = "Shield of Duran", slot = "W", danger = 1},
@@ -742,7 +743,7 @@ local InterrupterSpells = {
 local Priorities = {
 	["Aatrox"] = 3, ["Ahri"] = 4, ["Akali"] = 4, ["Alistar"] = 1, ["Amumu"] = 1, ["Anivia"] = 4, ["Annie"] = 4, ["Aphelios"] = 5, ["Ashe"] = 5, ["AurelionSol"] = 4,
 	["Azir"] = 4, ["Bard"] = 3, ["Blitzcrank"] = 1, ["Brand"] = 4, ["Braum"] = 1, ["Caitlyn"] = 5, ["Camille"] = 3, ["Cassiopeia"] = 4, ["Chogath"] = 1, ["Corki"] = 5,
-	["Darius"] = 2, ["Diana"] = 4, ["DrMundo"] = 1, ["Draven"] = 5, ["Ekko"] = 4, ["Elise"] = 3, ["Evelynn"] = 4, ["Ezreal"] = 5, ["Fiddlesticks"] = 3, ["Fiora"] = 3,
+	["Darius"] = 2, ["Diana"] = 4, ["DrMundo"] = 1, ["Draven"] = 5, ["Ekko"] = 4, ["Elise"] = 3, ["Evelynn"] = 4, ["Ezreal"] = 5, ["FiddleSticks"] = 3, ["Fiora"] = 3,
 	["Fizz"] = 4, ["Galio"] = 1, ["Gangplank"] = 4, ["Garen"] = 1, ["Gnar"] = 1, ["Gragas"] = 2, ["Graves"] = 4, ["Hecarim"] = 2, ["Heimerdinger"] = 3, ["Illaoi"] = 3,
 	["Irelia"] = 3, ["Ivern"] = 1, ["Janna"] = 2, ["JarvanIV"] = 3, ["Jax"] = 3, ["Jayce"] = 4, ["Jhin"] = 5, ["Jinx"] = 5, ["Kaisa"] = 5, ["Kalista"] = 5, ["Karma"] = 4,
 	["Karthus"] = 4, ["Kassadin"] = 4, ["Katarina"] = 4, ["Kayle"] = 4, ["Kayn"] = 4, ["Kennen"] = 4, ["Khazix"] = 4, ["Kindred"] = 4, ["Kled"] = 2, ["KogMaw"] = 5,
