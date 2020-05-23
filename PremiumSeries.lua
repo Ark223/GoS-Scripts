@@ -11,7 +11,10 @@
 
 	Changelog:
 
-	v1.1.
+	v1.1.1
+	+ Experimental update (fixes crashes)
+
+	v1.1
 	+ Added Ahri
 
 	v1.0.9
@@ -60,7 +63,7 @@
 
 --]]
 
-local GlobalVersion = 1.1
+local GlobalVersion = 1.11
 
 local Champions = {
 	["Ahri"] = function() return Ahri:__init() end,
@@ -86,10 +89,30 @@ local Versions = {
 
 local MathAbs, MathAtan, MathAtan2, MathAcos, MathCeil, MathCos, MathDeg, MathFloor, MathHuge, MathMax, MathMin, MathPi, MathRad, MathRandom, MathSin, MathSqrt =
 	math.abs, math.atan, math.atan2, math.acos, math.ceil, math.cos, math.deg, math.floor, math.huge, math.max, math.min, math.pi, math.rad, math.random, math.sin, math.sqrt
-local ControlIsKeyDown, ControlKeyDown, ControlKeyUp, ControlSetCursorPos, DrawCircle, DrawLine, DrawRect, DrawText, GameCanUseSpell, GameLatency, GameTimer, GameHeroCount, GameHero, GameMinionCount, GameMinion, GameTurretCount, GameTurret =
-	Control.IsKeyDown, Control.KeyDown, Control.KeyUp, Control.SetCursorPos, Draw.Circle, Draw.Line, Draw.Rect, Draw.Text, Game.CanUseSpell, Game.Latency, Game.Timer, Game.HeroCount, Game.Hero, Game.MinionCount, Game.Minion, Game.TurretCount, Game.Turret
+local ControlIsKeyDown, ControlKeyDown, ControlKeyUp, ControlSetCursorPos, DrawCircle, DrawLine, DrawRect, DrawText, GameCanUseSpell, GameLatency, GameTimer, GameHero, GameMinion, GameTurret =
+	Control.IsKeyDown, Control.KeyDown, Control.KeyUp, Control.SetCursorPos, Draw.Circle, Draw.Line, Draw.Rect, Draw.Text, Game.CanUseSpell, Game.Latency, Game.Timer, Game.Hero, Game.Minion, Game.Turret
 local TableInsert, TableRemove, TableSort = table.insert, table.remove, table.sort
 local Icons, Png = "https://raw.githubusercontent.com/Ark223/LoL-Icons/master/", ".png"
+
+local function GameHeroCount()
+	local c = Game.HeroCount()
+	return (not c or c < 0 or c > 12) and 0 or c
+end
+
+local function GameMinionCount()
+	local c = Game.MinionCount()
+	return (not c or c < 0 or c > 500) and 0 or c
+end
+
+local function GameTurretCount()
+	local c = Game.TurretCount()
+	return (not c or c < 0 or c > 11) and 0 or c
+end
+
+local function GetBuffCount(unit)
+	local c = unit.buffCount
+	return (not c or c < 0 or c > 63) and -1 or c
+end
 
 local function DownloadFile(site, file)
 	DownloadFileAsync(site, file, function() end)
@@ -1279,7 +1302,7 @@ function Ahri:__init()
 	self.AhriMenu.Combo:MenuElement({id = "UseW", name = "W [Fox-Fire]", value = true, leftIcon = Icons.."AhriW"..Png})
 	self.AhriMenu.Combo:MenuElement({id = "UseE", name = "E [Charm]", value = true, leftIcon = Icons.."AhriE"..Png})
 	self.AhriMenu.Combo:MenuElement({id = "UseR", name = "R [Spirit Rush]", value = true, leftIcon = Icons.."AhriR"..Png})
-	self.AhriMenu.Combo:MenuElement({id = "MaxHPR", name = "R: Maximum Health [%]", value = 35, min = 1, max = 100, step = 1})
+	self.AhriMenu.Combo:MenuElement({id = "MaxHPR", name = "R: Maximum Health [%]", value = 40, min = 1, max = 100, step = 1})
 	self.AhriMenu:MenuElement({id = "Harass", name = "Harass", type = MENU})
 	self.AhriMenu.Harass:MenuElement({id = "UseQ", name = "Q [Orb of Deception]", value = true, leftIcon = Icons.."AhriQ"..Png})
 	self.AhriMenu.Harass:MenuElement({id = "UseW", name = "W [Fox-Fire]", value = true, leftIcon = Icons.."AhriW"..Png})
@@ -1604,7 +1627,7 @@ function Cassiopeia:GetTarget(range)
 end
 
 function Cassiopeia:PoisonDuration(unit)
-	for i = 0, unit.buffCount do
+	for i = 0, GetBuffCount(unit) do
 		local buff = unit:GetBuff(i)
 		if buff and buff.count > 0 and self.IsPoison(buff.name) then
 			return buff.duration
@@ -1862,7 +1885,7 @@ function Quinn:CastESpell(unit, mode)
 end
 
 function Quinn:HasPassive(unit)
-	for i = 0, unit.buffCount do
+	for i = 0, GetBuffCount(unit) do
 		local buff = unit:GetBuff(i)
 		if buff and buff.count > 0 and
 			buff.name == "QuinnW" then return 1
@@ -2082,7 +2105,7 @@ end
 -- Methods
 
 function Vayne:BoltsCount(unit)
-	for i = 0, unit.buffCount do
+	for i = 0, GetBuffCount(unit) do
 		local buff = unit:GetBuff(i)
 		if buff and buff.count > 0 and
 			self.HasSilverBolts(buff.name) then
@@ -2093,7 +2116,7 @@ function Vayne:BoltsCount(unit)
 end
 
 function Vayne:HasStealthBuff()
-	for i = 0, myHero.buffCount do
+	for i = 0, GetBuffCount(myHero) do
 		local buff = myHero:GetBuff(i)
 		if buff and buff.count > 0 and
 			self.IsStealthed(buff.name) then
@@ -2104,7 +2127,7 @@ function Vayne:HasStealthBuff()
 end
 
 function Vayne:HasTumbleBonus()
-	for i = 0, myHero.buffCount do
+	for i = 0, GetBuffCount(myHero) do
 		local buff = myHero:GetBuff(i)
 		if buff and buff.count > 0 and
 			self.IsTumbleBonus(buff.name) then
@@ -2597,7 +2620,7 @@ function Xerath:GetTarget(range)
 end
 
 function Xerath:IsChargingArcanopulse()
-	for i = 0, myHero.buffCount do
+	for i = 0, GetBuffCount(myHero) do
 		local buff = myHero:GetBuff(i)
 		if buff and buff.count > 0 and
 			buff.name == "XerathArcanopulseChargeUp" then
@@ -2608,7 +2631,7 @@ function Xerath:IsChargingArcanopulse()
 end
 
 function Xerath:IsArcaneActive()
-	for i = 0, myHero.buffCount do
+	for i = 0, GetBuffCount(myHero) do
 		local buff = myHero:GetBuff(i)
 		if buff and buff.count > 0 and
 			buff.name == "XerathLocusOfPower2" then
@@ -2976,7 +2999,7 @@ function Yasuo:IsDashPosSafe(target)
 end
 
 function Yasuo:IsMarked(unit)
-	for i = 0, unit.buffCount do
+	for i = 0, GetBuffCount(unit) do
 		local buff = unit:GetBuff(i)
 		if buff and buff.count > 0 and buff.name == "YasuoE" then
 			return true
@@ -2992,7 +3015,7 @@ function Yasuo:IsPosSafe(pos, data)
 end
 
 function Yasuo:KnockupDuration(unit)
-	for i = 0, unit.buffCount do
+	for i = 0, GetBuffCount(unit) do
 		local buff = unit:GetBuff(i)
 		if buff and buff.count > 0 and self.KnockBuffs[buff.type] then
 			return buff.duration

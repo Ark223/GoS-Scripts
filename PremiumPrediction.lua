@@ -15,7 +15,7 @@ local function ReadFile(file)
 	txt:close(); return result
 end
 
-local Version, IntVer = 1.13, "1.1.3"
+local Version, IntVer = 1.14, "1.1.4"
 local function AutoUpdate()
 	DownloadFile("https://raw.githubusercontent.com/Ark223/GoS-Scripts/master/PremiumPrediction.version", COMMON_PATH .. "PremiumPrediction.version")
 	if tonumber(ReadFile(COMMON_PATH .. "PremiumPrediction.version")) > Version then
@@ -25,11 +25,13 @@ local function AutoUpdate()
 	end
 end
 
-local MathAbs, MathAtan, MathAtan2, MathAcos, MathCeil, MathCos, MathDeg, MathFloor, MathHuge, MathMax, MathMin, MathPi, MathRad, MathSin, MathSqrt = math.abs, math.atan, math.atan2, math.acos, math.ceil, math.cos, math.deg, math.floor, math.huge, math.max, math.min, math.pi, math.rad, math.sin, math.sqrt
-local DrawCircle, GameCanUseSpell, GameLatency, GameTimer, GameHeroCount, GameHero, GameMinionCount, GameMinion, GameMissileCount, GameMissile = Draw.Circle, Game.CanUseSpell, Game.Latency, Game.Timer, Game.HeroCount, Game.Hero, Game.MinionCount, Game.Minion, Game.MissileCount, Game.Missile
-local TableInsert, TableRemove, TableSort = table.insert, table.remove, table.sort
 require "2DGeometry"
 require "MapPositionGOS"
+
+local MathAbs, MathAtan, MathAtan2, MathAcos, MathCeil, MathCos, MathDeg, MathFloor, MathHuge, MathMax, MathMin, MathPi, MathRad, MathSin, MathSqrt =
+	math.abs, math.atan, math.atan2, math.acos, math.ceil, math.cos, math.deg, math.floor, math.huge, math.max, math.min, math.pi, math.rad, math.sin, math.sqrt
+local DrawCircle, GameCanUseSpell, GameLatency, GameTimer, GameHero, GameMinion = Draw.Circle, Game.CanUseSpell, Game.Latency, Game.Timer, Game.Hero, Game.Minion
+local TableInsert, TableRemove, TableSort = table.insert, table.remove, table.sort
 
 local CCBuffs, CustomData = {[5] = true, [8] = true, [11] = true, [18] = true,
 	[21] = true, [22] = true, [24] = true, [28] = true, [29] = true}, {}
@@ -47,6 +49,31 @@ local DashWindups = {
 	["UrgotE"] = 0.45,
 	["WarwickR"] = 0.1
 }
+
+local function GameHeroCount()
+	local c = Game.HeroCount()
+	return (not c or c < 0 or c > 12) and 0 or c
+end
+
+local function GameMinionCount()
+	local c = Game.MinionCount()
+	return (not c or c < 0 or c > 500) and 0 or c
+end
+
+local function GetBuffCount(unit)
+	local c = unit.buffCount
+	return (not c or c < 0 or c > 63) and -1 or c
+end
+
+local function GetPathCount(unit)
+	local c = unit.pathing.pathCount
+	return (not c or c < 0 or c > 20) and -1 or c
+end
+
+local function GetPathIndex(unit)
+	local i = unit.pathing.pathIndex
+	return (not i or i < 0 or i > 20) and -1 or i
+end
 
 local function Class()
 	local cls = {}; cls.__index = cls
@@ -403,13 +430,14 @@ end
 
 function PremiumPred:GetPathLength(path)
 	local dist = 0
-	for i = 1, #path - 1 do
-		dist = dist + self:Distance(path[i], path[i + 1])
+	for i = 1, #path - 1 do dist = dist +
+		self:Distance(path[i], path[i + 1])
 	end
 	return dist
 end
 
 function PremiumPred:GetPositionAfter(path, speed, time)
+	if #path == 0 then return nil end
 	if #path == 1 then return path[1] end
 	local distance = time * speed
 	if distance < 0 then
@@ -431,7 +459,8 @@ end
 function PremiumPred:GetPositionAfterTime(unit, time)
 	if not self:IsMoving(unit) then return unit.pos end
 	local path, speed = self:GetWaypoints(unit), self:GetMovementSpeed(unit)
-	return self:To3D(self:GetPositionAfter(path, speed, time), unit.pos.y)
+	local pos = self:GetPositionAfter(path, speed, time)
+	return pos and self:To3D(pos, unit.pos.y) or nil
 end
 
 function PremiumPred:GetPossibleUnits(source, unit, spellData)
@@ -456,8 +485,10 @@ function PremiumPred:GetWaypoints(unit)
 		if unit.pathing.isDashing then
 			TableInsert(result, self:To2D(unit.pathing.endPos))
 		else
-			for i = unit.pathing.pathIndex, unit.pathing.pathCount do
-				TableInsert(result, Point2(unit:GetPath(i).x, unit:GetPath(i).z))
+			local index, count = GetPathIndex(unit), GetPathCount(unit)
+			if index == -1 or count == -1 then return {} end
+			for i = index, count do TableInsert(result,
+				Point2(unit:GetPath(i).x, unit:GetPath(i).z))
 			end
 		end
 	end
@@ -471,9 +502,10 @@ function PremiumPred:GetWaypoints3D(unit)
 		if unit.pathing.isDashing then
 			TableInsert(result, Vector(unit.pathing.endPos))
 		else
-			for i = unit.pathing.pathIndex, unit.pathing.pathCount do
-				TableInsert(result, Vector(unit:GetPath(i)))
-			end
+			local index, count = GetPathIndex(unit), GetPathCount(unit)
+			if index == -1 or count == -1 then return {} end
+			for i = index, count do TableInsert(
+				result, Vector(unit:GetPath(i))) end
 		end
 	end
 	return result
@@ -567,7 +599,8 @@ function PremiumPred:IsPointInArc(sourcePos, unitPos, endPos, range, angle)
 	local c = self:Magnitude(b); local d = self:DotProduct(a, b) / c
 	local inf = d / self:Magnitude(a) <= MathCos(angle)
 	if inf then return false end
-	return d <= c and self:DistanceSquared(sourcePos, unitPos) <= range * range
+	return d <= c and self:DistanceSquared(
+		sourcePos, unitPos) <= range * range
 end
 
 function PremiumPred:Magnitude(p)
@@ -594,7 +627,8 @@ end
 
 function PremiumPred:CalcAverage(samples)
 	local result = 0
-	for i, val in ipairs(samples) do result = result + val end
+	for i, val in ipairs(samples) do
+		result = result + val end
 	return result / #samples
 end
 
@@ -615,10 +649,11 @@ function PremiumPred:GetImmobileDuration(unit)
 			local endTime = unit.activeSpell.castEndTime
 			if endTime >= GameTimer() then return endTime - GameTimer() end
 	end
-	for i = 0, unit.buffCount do
+	for i = 0, GetBuffCount(unit) do
 		local buff = unit:GetBuff(i)
 		if buff and buff.count > 0 and buff.duration > 0 and
-			buff.duration <= 5 and CCBuffs[buff.type] then return buff.duration
+			buff.duration <= 5 and CCBuffs[buff.type]
+				then return buff.duration
 		end
 	end
 	return 0
@@ -843,6 +878,7 @@ function PremiumPred:GetFastPrediction(source, unit, spellData)
 	local unitPos, y = self:To2D(unit.pos), unit.pos.y
 	if not self:IsMoving(unit) then return unitPos end
 	local waypoints, moveSpeed = self:GetWaypoints(unit), self:GetMovementSpeed(unit)
+	if #waypoints == 0 then return nil end
 	waypoints = self:CutWaypoints(waypoints, (spellData.delay + self.PPMenu.Latency:Value() / 2000 + 0.07) * moveSpeed)
 	if spellData.speed == MathHuge or #waypoints == 1 then return self:To3D(waypoints[1], y) end
 	if #waypoints >= 2 then
@@ -865,7 +901,9 @@ function PremiumPred:GetDashPrediction(source, unit, spellData)
 			{CastPos = unitPos, PredPos = unitPos, TimeToHit = travelTime, CanHit = true}
 	end
 	local waypoints, moveSpeed = self:GetWaypoints(unit), self:GetMovementSpeed(unit)
-	waypoints = self:CutWaypoints(waypoints, (spellData.delay + self.PPMenu.Latency:Value() / 2000 + 0.07) * moveSpeed)
+	if #waypoints == 0 then return output end
+	waypoints = self:CutWaypoints(waypoints, (spellData.delay +
+		self.PPMenu.Latency:Value() / 2000 + 0.07) * moveSpeed)
 	local predPos = waypoints[1]
 	if spellData.speed ~= MathHuge and #waypoints > 1 then
 		local t = self:Interception(waypoints[1], waypoints[2], sourcePos, moveSpeed, spellData.speed, 0)
@@ -901,7 +939,10 @@ function PremiumPred:PredictUnitPosition(source, unit, spellData)
 	if not self:IsMoving(unit) and #waypoints == 0 then
 		output.CastPos, output.PredPos = unitPos, unitPos
 	else
-		if #waypoints == 0 then waypoints = self:GetWaypoints(unit) end
+		if #waypoints == 0 then
+			waypoints = self:GetWaypoints(unit)
+			if #waypoints == 0 then return output end
+		end
 		local threshold = MathMax(0, (spellData.radius - 1) / moveSpeed)
 		local delay = (spellData.delay + self.PPMenu.Latency:Value() / 2000 + 0.07)
 		if spellData.speed == MathHuge then
