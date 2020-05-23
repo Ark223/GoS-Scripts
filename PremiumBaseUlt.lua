@@ -9,8 +9,8 @@
 
 --]]
 
-local GameCanUseSpell, GameHero, GameObject, GameObjectCount, GameTimer =
-	Game.CanUseSpell, Game.Hero, Game.Object, Game.ObjectCount, Game.Timer
+local DrawColor, DrawLine, DrawRect, DrawText, GameCanUseSpell, GameHero, GameObject, GameObjectCount, GameTimer =
+	Draw.Color, Draw.Line, Draw.Rect, Draw.Text, Game.CanUseSpell, Game.Hero, Game.Object, Game.ObjectCount, Game.Timer
 local MathCeil, MathFloor, MathMax, MathSqrt = math.ceil, math.floor, math.max, math.sqrt
 
 local function GameHeroCount()
@@ -157,21 +157,21 @@ function BaseUlt:OnWndMsg(msg, wParam)
 end
 
 function BaseUlt:DrawOutlineRect(x, y, w, h, t, c)
-	Draw.Line(x, y, x + w, y, t, c); Draw.Line(x + w, y, x + w, y + h, t, c)
-	Draw.Line(x + w, y + h, x, y + h, t, c); Draw.Line(x, y + h, x, y, t, c)
+	DrawLine(x, y, x + w, y, t, c); DrawLine(x + w, y, x + w, y + h, t, c)
+	DrawLine(x + w, y + h, x, y + h, t, c); DrawLine(x, y + h, x, y, t, c)
 end
 
 function BaseUlt:OnDraw()
 	if not self.Done then
 		if self.Allow then self.Window = {x = cursorPos.x +
 			self.Allow.x, y = cursorPos.y + self.Allow.y} end
-		Draw.Rect(self.Window.x, self.Window.y, 375, 83, Draw.Color(224, 23, 23, 23))
-		Draw.Text("Premium Base Ult", 14, self.Window.x + 136,
-			self.Window.y + 7, Draw.Color(192, 255, 255, 255))
-		Draw.Text("Please move the window box to your favourite spot and click OK", 14,
-			self.Window.x + 10, self.Window.y + 23, Draw.Color(192, 255, 255, 255))
-		Draw.Rect(self.Window.x + 141, self.Window.y + 46, 80, 28, Draw.Color(224, 0, 128, 127))
-		Draw.Text("OK", 14, self.Window.x + 173, self.Window.y + 53, Draw.Color(192, 255, 255, 255))
+		DrawRect(self.Window.x, self.Window.y, 375, 83, DrawColor(224, 23, 23, 23))
+		DrawText("Premium Base Ult", 14, self.Window.x + 136,
+			self.Window.y + 7, DrawColor(192, 255, 255, 255))
+		DrawText("Please move the window box to your favourite spot and click OK", 14,
+			self.Window.x + 10, self.Window.y + 23, DrawColor(192, 255, 255, 255))
+		DrawRect(self.Window.x + 141, self.Window.y + 46, 80, 28, DrawColor(224, 0, 128, 127))
+		DrawText("OK", 14, self.Window.x + 173, self.Window.y + 53, DrawColor(192, 255, 255, 255))
 		return
 	end
 	if not self:IsUltReady() or
@@ -185,12 +185,12 @@ function BaseUlt:OnDraw()
 				local dur, timer = self.Recalls[id].duration,
 					MathMax(0, self.Recalls[id].endTime - GameTimer())
 				local pos = {x = self.Window.x, y = self.Window.y - swap * 60}
-				Draw.Rect(pos.x, pos.y, timer / dur * 375, 16, Draw.Color(192, 220, 220, 220))
-				self:DrawOutlineRect(pos.x, pos.y, 375, 16, 3, Draw.Color(224, 25, 25, 25))
-				Draw.Text(hero.charName, 15, pos.x + 2, pos.y - 18, Draw.Color(192, 255, 255, 255))
+				DrawRect(pos.x, pos.y, timer / dur * 375, 16, DrawColor(192, 220, 220, 220))
+				self:DrawOutlineRect(pos.x, pos.y, 375, 16, 3, DrawColor(224, 25, 25, 25))
+				DrawText(hero.charName, 15, pos.x + 2, pos.y - 18, DrawColor(192, 255, 255, 255))
 				local t = self:CalcTimeToHit(self:Distance(myHero.pos, self.Base))
-				if t <= dur and self.Recalls[id].process then Draw.Rect(pos.x + t /
-					dur * 375 - 2, pos.y, 5, 16, Draw.Color(224, 220, 10, 30)) end
+				if t <= dur and self.Recalls[id].process then DrawRect(pos.x + t /
+					dur * 375 - 2, pos.y, 5, 16, DrawColor(224, 220, 10, 30)) end
 				swap = swap + 1
 			end
 		end
