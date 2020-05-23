@@ -1,4 +1,14 @@
 
+--[[
+	 _______                           _                       ______                  _____  _____ __  _    
+	|_   __ \                         (_)                     |_   _ \                |_   _||_   _[  |/ |_  
+	  | |__) _ .--. .---. _ .--..--.  __ __   _  _ .--..--.     | |_) | ,--.  .--. .---.| |    | |  | `| |-' 
+	  |  ___[ `/'`\/ /__\[ `.-. .-. |[  [  | | |[ `.-. .-. |    |  __'.`'_\ :( (`\/ /__\| '    ' |  | || |   
+	 _| |_   | |   | \__.,| | | | | | | || \_/ |,| | | | | |   _| |__) // | |,`'.'| \__.,\ \__/ /   | || |,  
+	|_____| [___]   '.__.[___||__||__[___'.__.'_[___||__||__] |_______/\'-;__[\__) '.__.' `.__.'   [___\__/  
+
+--]]
+
 local GameCanUseSpell, GameHero, GameObject, GameObjectCount, GameTimer =
 	Game.CanUseSpell, Game.Hero, Game.Object, Game.ObjectCount, Game.Timer
 local MathCeil, MathFloor, MathMax, MathSqrt = math.ceil, math.floor, math.max, math.sqrt
@@ -146,7 +156,6 @@ function BaseUlt:OnTick()
 					dmg = SpellData[self.CharName].type == 2 and
 						self:CalcPhysicalDamage(myHero, hero, dmg)
 						or self:CalcMagicalDamage(myHero, hero, dmg)
-					print(dmg)
 					if dmg >= hero.health then self:ForceUlt() end
 				end
 			end
