@@ -185,7 +185,7 @@ function BaseUlt:OnDraw()
 				local dur, timer = self.Recalls[id].duration,
 					MathMax(0, self.Recalls[id].endTime - GameTimer())
 				local pos = {x = self.Window.x, y = self.Window.y - swap * 60}
-				Draw.Rect(pos.x, pos.y, timer / dur * 375, 16, Draw.Color(224, 220, 220, 220))
+				Draw.Rect(pos.x, pos.y, timer / dur * 375, 16, Draw.Color(192, 220, 220, 220))
 				self:DrawOutlineRect(pos.x, pos.y, 375, 16, 3, Draw.Color(224, 25, 25, 25))
 				Draw.Text(hero.charName, 15, pos.x + 2, pos.y - 18, Draw.Color(192, 255, 255, 255))
 				local t = self:CalcTimeToHit(self:Distance(myHero.pos, self.Base))
