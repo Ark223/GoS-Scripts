@@ -121,13 +121,15 @@ function BaseUlt:__init()
 end
 
 function BaseUlt:IsInsideTheBox(pt)
-	return pt.x >= self.Window.x and pt.x <= self.Window.x + 375
-		and pt.y >= self.Window.y and pt.y <= self.Window.y + 83
+	local x, y = self.Window.x, self.Window.y
+	return pt.x >= x and pt.x <= x + 375
+		and pt.y >= y and pt.y <= y + 83
 end
 
 function BaseUlt:IsOnButton(pt)
-	return pt.x >= self.Window.x + 141 and pt.x <= self.Window.x + 221
-		and pt.y >= self.Window.y + 46 and pt.y <= self.Window.y + 74
+	local x, y = self.Window.x, self.Window.y
+	return pt.x >= x + 141 and pt.x <= x + 221
+		and pt.y >= y + 46 and pt.y <= y + 74
 end
 
 function BaseUlt:OnPreAttack(args)
@@ -148,7 +150,7 @@ end
 function BaseUlt:OnWndMsg(msg, wParam)
 	if self.Done then return end
 	if self:IsOnButton(cursorPos) then
-		self.Window.y = self.Window.y - 83
+		self.Window.y = self.Window.y + 63
 		self.Done = true; return end
 	self.Allow = msg == 513 and wParam == 0 and self:IsInsideTheBox(cursorPos)
 		and {x = self.Window.x - cursorPos.x, y = self.Window.y - cursorPos.y} or nil
@@ -182,13 +184,13 @@ function BaseUlt:OnDraw()
 			if self.Recalls[id] then
 				local dur, timer = self.Recalls[id].duration,
 					MathMax(0, self.Recalls[id].endTime - GameTimer())
-				local pos = {x = self.Window.x, y = self.Window.y - swap * 70}
-				Draw.Rect(pos.x, pos.y, timer / dur * 375, 20, Draw.Color(224, 220, 220, 220))
-				self:DrawOutlineRect(pos.x, pos.y, 375, 20, 3, Draw.Color(224, 25, 25, 25))
-				Draw.Text(hero.charName, 16, pos.x + 3, pos.y - 20, Draw.Color(192, 255, 255, 255))
+				local pos = {x = self.Window.x, y = self.Window.y - swap * 60}
+				Draw.Rect(pos.x, pos.y, timer / dur * 375, 16, Draw.Color(224, 220, 220, 220))
+				self:DrawOutlineRect(pos.x, pos.y, 375, 16, 3, Draw.Color(224, 25, 25, 25))
+				Draw.Text(hero.charName, 15, pos.x + 2, pos.y - 18, Draw.Color(192, 255, 255, 255))
 				local t = self:CalcTimeToHit(self:Distance(myHero.pos, self.Base))
 				if t <= dur and self.Recalls[id].process then Draw.Rect(pos.x + t /
-					dur * 375 - 2, pos.y, 5, 20, Draw.Color(224, 220, 10, 30)) end
+					dur * 375 - 2, pos.y, 5, 16, Draw.Color(224, 220, 10, 30)) end
 				swap = swap + 1
 			end
 		end
