@@ -42,8 +42,13 @@ local SpellData = {
 
 function OnLoad()
 	print("Loading PremiumBaseUlt...")
-	BaseUlt:__init()
-	print("PremiumBaseUlt successfully loaded!")
+	if not SpellData[myHero.charName] then
+		print("PremiumBaseUlt: Champion not supported!")
+		return end
+	DelayAction(function()
+		BaseUlt:__init()
+		print("PremiumBaseUlt successfully loaded!")
+	end, MathMax(0.07, 30 - GameTimer()))
 end
 
 class "BaseUlt"
@@ -92,8 +97,9 @@ function BaseUlt:IsUltReady()
 end
 
 function BaseUlt:__init()
-	self.Action, self.Base, self.CharName, self.Mia,
-		self.Recalls = false, nil, myHero.charName, {}, {}
+	self.Window = {x = Game.Resolution().x * 0.5, y = Game.Resolution().y * 0.5}
+	self.Action, self.Allow, self.Done, self.Base, self.CharName, self.Mia,
+		self.Recalls = false, nil, false, nil, myHero.charName, {}, {}
 	for i = 1, GameObjectCount() do
 		local obj = GameObject(i)
 		if obj.isEnemy and obj.type == Obj_AI_SpawnPoint then
@@ -109,7 +115,19 @@ function BaseUlt:__init()
 	end
 	Callback.Add("ProcessRecall", function(unit, recall)
 		self:OnProcessRecall(unit, recall) end)
+	Callback.Add("WndMsg", function(...) self:OnWndMsg(...) end)
+	Callback.Add("Draw", function() self:OnDraw() end)
 	Callback.Add("Tick", function() self:OnTick() end)
+end
+
+function BaseUlt:IsInsideTheBox(pt)
+	return pt.x >= self.Window.x and pt.x <= self.Window.x + 375
+		and pt.y >= self.Window.y and pt.y <= self.Window.y + 83
+end
+
+function BaseUlt:IsOnButton(pt)
+	return pt.x >= self.Window.x + 141 and pt.x <= self.Window.x + 221
+		and pt.y >= self.Window.y + 46 and pt.y <= self.Window.y + 74
 end
 
 function BaseUlt:OnPreAttack(args)
@@ -122,9 +140,59 @@ end
 
 function BaseUlt:OnProcessRecall(unit, recall)
 	if unit.team == myHero.team then return end
-	self.Recalls[unit.networkID] = recall.isStart
-		and	not recall.isFinish and (GameTimer() +
-			recall.totalTime * 0.001) or nil
+	self.Recalls[unit.networkID] = recall.isStart and not
+		recall.isFinish and {endTime = (GameTimer() + recall.totalTime * 0.001),
+			duration = recall.totalTime * 0.001, process = false} or nil
+end
+
+function BaseUlt:OnWndMsg(msg, wParam)
+	if self.Done then return end
+	if self:IsOnButton(cursorPos) then
+		self.Window.y = self.Window.y - 83
+		self.Done = true; return end
+	self.Allow = msg == 513 and wParam == 0 and self:IsInsideTheBox(cursorPos)
+		and {x = self.Window.x - cursorPos.x, y = self.Window.y - cursorPos.y} or nil
+end
+
+function BaseUlt:DrawOutlineRect(x, y, w, h, t, c)
+	Draw.Line(x, y, x + w, y, t, c); Draw.Line(x + w, y, x + w, y + h, t, c)
+	Draw.Line(x + w, y + h, x, y + h, t, c); Draw.Line(x, y + h, x, y, t, c)
+end
+
+function BaseUlt:OnDraw()
+	if not self.Done then
+		if self.Allow then self.Window = {x = cursorPos.x +
+			self.Allow.x, y = cursorPos.y + self.Allow.y} end
+		Draw.Rect(self.Window.x, self.Window.y, 375, 83, Draw.Color(224, 23, 23, 23))
+		Draw.Text("Premium Base Ult", 14, self.Window.x + 136,
+			self.Window.y + 7, Draw.Color(192, 255, 255, 255))
+		Draw.Text("Please move the window box to your favourite spot and click OK", 14,
+			self.Window.x + 10, self.Window.y + 23, Draw.Color(192, 255, 255, 255))
+		Draw.Rect(self.Window.x + 141, self.Window.y + 46, 80, 28, Draw.Color(224, 0, 128, 127))
+		Draw.Text("OK", 14, self.Window.x + 173, self.Window.y + 53, Draw.Color(192, 255, 255, 255))
+		return
+	end
+	if not self:IsUltReady() or
+		myHero.dead then return end
+	local swap = 0
+	for i = 1, GameHeroCount() do
+		local hero = GameHero(i)
+		if hero.valid and hero.isEnemy then
+			local id = hero.networkID
+			if self.Recalls[id] then
+				local dur, timer = self.Recalls[id].duration,
+					MathMax(0, self.Recalls[id].endTime - GameTimer())
+				local pos = {x = self.Window.x, y = self.Window.y - swap * 70}
+				Draw.Rect(pos.x, pos.y, timer / dur * 375, 20, Draw.Color(224, 220, 220, 220))
+				self:DrawOutlineRect(pos.x, pos.y, 375, 20, 3, Draw.Color(224, 25, 25, 25))
+				Draw.Text(hero.charName, 16, pos.x + 3, pos.y - 20, Draw.Color(192, 255, 255, 255))
+				local t = self:CalcTimeToHit(self:Distance(myHero.pos, self.Base))
+				if t <= dur and self.Recalls[id].process then Draw.Rect(pos.x + t /
+					dur * 375 - 2, pos.y, 5, 20, Draw.Color(224, 220, 10, 30)) end
+				swap = swap + 1
+			end
+		end
+	end
 end
 
 function BaseUlt:OnTick()
@@ -147,16 +215,20 @@ function BaseUlt:OnTick()
 					dmg = dmg * (0.1 + 0.0006 * MathMax(1500, dist)) +
 						(0.2 + 0.05 * lvl) * (unit.maxHealth - unit.health)
 				end
-				local recallTime, timeToHit = self.Recalls[id] -
-					GameTimer(), self:CalcTimeToHit(dist)
-				if recallTime <= timeToHit + 0.1 and recallTime > timeToHit - 0.5 then
+				local timeToHit, recallTime = self:CalcTimeToHit(dist),
+					self.Recalls[id].endTime - GameTimer()
+				if timeToHit <= self.Recalls[id].duration then
 					local delta = timeToHit + recallTime + (self.Mia[id]
 						and GameTimer() - self.Mia[id] or 0)
 					dmg = dmg - MathCeil(delta) * hero.hpRegen
 					dmg = SpellData[self.CharName].type == 2 and
 						self:CalcPhysicalDamage(myHero, hero, dmg)
 						or self:CalcMagicalDamage(myHero, hero, dmg)
-					if dmg >= hero.health then self:ForceUlt() end
+					if dmg >= hero.health then
+						self.Recalls[id].process = true
+						if recallTime <= timeToHit + 0.1 and recallTime >
+							timeToHit - 0.5 then self:ForceUlt() end
+					end
 				end
 			end
 		end
