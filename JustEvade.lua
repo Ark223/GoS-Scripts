@@ -12,6 +12,9 @@
 
 	Changelog:
 
+	v1.1.5
+	+ Extended evade loading to make sure the spells are loaded
+
 	v1.1.4
 	+ Improved drawing performance
 
@@ -79,7 +82,7 @@ local function ReadFile(file)
 	txt:close(); return result
 end
 
-local Version, IntVer = 1.14, "1.1.4"
+local Version, IntVer = 1.15, "1.1.5"
 local function AutoUpdate()
 	DownloadFile("https://raw.githubusercontent.com/Ark223/GoS-Scripts/master/JustEvade.version", SCRIPT_PATH .. "JustEvade.version")
 	if tonumber(ReadFile(SCRIPT_PATH .. "JustEvade.version")) > Version then
@@ -2060,18 +2063,25 @@ function JEvade:OnCreateMissile(unit, missile)
 	end
 end
 
-JEvade:__init()
+function OnLoad()
+	print("Loading JustEvade...")
+	DelayAction(function()
+		JEvade:__init()
+		print("JustEvade successfully loaded!")
+		ReleaseEvadeAPI(); AutoUpdate()
+	end, MathMax(0.07, 30 - GameTimer()))
+end
 
 -- API
 
-_G.JustEvade = {
-	Loaded = function() return JEvade.Loaded end,
-	Evading = function() return JEvade.Evading end,
-	IsDangerous = function(self, pos) return JEvade:IsDangerous(JEvade:To2D(pos)) end,
-	SafePos = function(self) return JEvade:SafePosition() end,
-	OnImpossibleDodge = function(self, func) JEvade:ImpossibleDodge(func) end,
-	OnCreateMissile = function(self, func) JEvade:CreateMissile(func) end,
-	OnProcessSpell = function(self, func) JEvade:ProcessSpell(func) end
-}
-
-AutoUpdate()
+function ReleaseEvadeAPI()
+	_G.JustEvade = {
+		Loaded = function() return JEvade.Loaded end,
+		Evading = function() return JEvade.Evading end,
+		IsDangerous = function(self, pos) return JEvade:IsDangerous(JEvade:To2D(pos)) end,
+		SafePos = function(self) return JEvade:SafePosition() end,
+		OnImpossibleDodge = function(self, func) JEvade:ImpossibleDodge(func) end,
+		OnCreateMissile = function(self, func) JEvade:CreateMissile(func) end,
+		OnProcessSpell = function(self, func) JEvade:ProcessSpell(func) end
+	}
+end
