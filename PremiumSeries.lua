@@ -2146,7 +2146,7 @@ function Vayne:GetBestTumblePos(target)
 	local mPos = PPoint(self.MyPos):Extended(
 		Geometry:To2D(mousePos), self.Q.range)
 	if target and Manager:IsReady(_E) then
-		for i = 40, 140, 10 do
+		for i = 120, 40, -10 do
 			local theta = MathRad(i)
 			repeat theta = theta * -1
 				local pos = Geometry:RotateAroundPoint(self.MyPos, mPos, theta)
