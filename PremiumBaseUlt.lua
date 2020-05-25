@@ -9,10 +9,11 @@
 
 --]]
 
+local Version = "1.0.1"
+
 local DrawColor, DrawLine, DrawRect, DrawText, GameCanUseSpell, GameHero, GameObject, GameObjectCount, GameTimer =
 	Draw.Color, Draw.Line, Draw.Rect, Draw.Text, Game.CanUseSpell, Game.Hero, Game.Object, Game.ObjectCount, Game.Timer
-local MathCeil, MathFloor, MathHuge, MathMax, MathSqrt, TableInsert =
-	math.ceil, math.floor, math.huge, math.max, math.sqrt, table.insert
+local MathFloor, MathHuge, MathMax, MathSqrt, TableInsert = math.floor, math.huge, math.max, math.sqrt, table.insert
 
 local function GameHeroCount()
 	local c = Game.HeroCount()
@@ -86,6 +87,13 @@ function BaseUlt:CalcTimeToHit(dist)
 	return data.delay + dist / speed
 end
 
+function BaseUlt:ClosestPointOnSegment(s1, s2, pt)
+	local ab = (s2 - s1)
+	local t = ((pt.x - s1.x) * ab.x + (pt.z -
+		s1.z) * ab.z) / (ab.x * ab.x + ab.z * ab.z)
+	return t < 0 and s1 or t > 1 and s2 or Vector(s1 + t * ab)
+end
+
 function BaseUlt:CutWaypoints(waypoints, distance)
 	local result = {}
 	for i = 1, #waypoints - 1 do
@@ -148,6 +156,19 @@ function BaseUlt:Interception(startPos, endPos, source, speed, missileSpeed, del
 		return Vector(startPos + vel * t), t
 	end
 	return nil, -1
+end
+
+function BaseUlt:IsColliding()
+	for i = 1, GameHeroCount() do
+		local hero = GameHero(i)
+		if hero.valid and hero.isEnemy and not self.Recalls[hero.networkID] then
+			local data = SpellData[self.CharName]
+			local pos = self:PredictPosition(hero, data.speed, data.delay)
+			if pos and self:Distance(pos, self:ClosestPointOnSegment(myHero.pos,
+				self.Base, pos) < data.radius * 2) then return true end
+		end
+	end
+	return false
 end
 
 function BaseUlt:IsInsideTheBox(pt)
@@ -255,7 +276,7 @@ function BaseUlt:OnDraw()
 		if self.Allow then self.Window = {x = cursorPos.x +
 			self.Allow.x, y = cursorPos.y + self.Allow.y} end
 		DrawRect(self.Window.x, self.Window.y, 375, 83, DrawColor(224, 23, 23, 23))
-		DrawText("Premium Base Ult", 14, self.Window.x + 136,
+		DrawText("Premium Base Ult v" .. Version, 14, self.Window.x + 117,
 			self.Window.y + 7, DrawColor(192, 255, 255, 255))
 		DrawText("Please move the window box to your favourite spot and click OK", 14,
 			self.Window.x + 10, self.Window.y + 23, DrawColor(192, 255, 255, 255))
@@ -263,8 +284,7 @@ function BaseUlt:OnDraw()
 		DrawText("OK", 14, self.Window.x + 173, self.Window.y + 53, DrawColor(192, 255, 255, 255))
 		return
 	end
-	if not self:IsUltReady() or
-		myHero.dead then return end
+	if myHero.dead then return end
 	local swap = 0
 	for i = 1, GameHeroCount() do
 		local hero = GameHero(i)
@@ -279,7 +299,7 @@ function BaseUlt:OnDraw()
 				DrawText(hero.charName, 15, pos.x + 2, pos.y - 18, DrawColor(192, 255, 255, 255))
 				local t = self:CalcTimeToHit(self:Distance(myHero.pos, self.Base))
 				if t <= dur and self.Recalls[id].process then DrawRect(pos.x + t /
-					dur * 375 - 2, pos.y + 3, 5, 13, DrawColor(224, 220, 10, 30)) end
+					dur * 375 - 3, pos.y + 1, 7, 14, DrawColor(224, 220, 10, 30)) end
 				swap = swap + 1
 			end
 		end
@@ -299,8 +319,10 @@ function BaseUlt:OnTick()
 				self.Mia[id] = nil
 			end
 			if self.Recalls[id] then
+				local data = SpellData[self.CharName]
+				if data.collision and self:IsColliding() then return end
 				local lvl = myHero:GetSpellData(_R).level
-				local dmg = SpellData[self.CharName].damage(lvl)
+				local dmg = data.damage(lvl)
 				local dist = self:Distance(myHero.pos, self.Base)
 				if self.CharName == "Jinx" then
 					dmg = dmg * (0.1 + 0.0006 * MathMax(1500, dist)) +
@@ -311,8 +333,8 @@ function BaseUlt:OnTick()
 				if timeToHit <= self.Recalls[id].duration then
 					local delta = timeToHit + recallTime + (self.Mia[id]
 						and GameTimer() - self.Mia[id] or 0)
-					dmg = dmg - MathCeil(delta) * hero.hpRegen
-					dmg = SpellData[self.CharName].type == 2 and
+					dmg = dmg - MathFloor(delta) * hero.hpRegen
+					dmg = data.type == 2 and
 						self:CalcPhysicalDamage(myHero, hero, dmg)
 						or self:CalcMagicalDamage(myHero, hero, dmg)
 					if dmg >= hero.health then
