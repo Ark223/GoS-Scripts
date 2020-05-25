@@ -112,7 +112,7 @@ function BaseUlt:Distance(p1, p2)
 	return MathSqrt(dx * dx + dy * dy)
 end
 
-function BaseUlt:DrawOutlineRect(x, y, w, h, t, c)
+function BaseUlt:DrawRectOutline(x, y, w, h, t, c)
 	DrawLine(x, y, x + w, y, t, c); DrawLine(x + w, y, x + w, y + h, t, c)
 	DrawLine(x + w, y + h, x, y + h, t, c); DrawLine(x, y + h, x, y, t, c)
 end
@@ -295,7 +295,7 @@ function BaseUlt:OnDraw()
 					MathMax(0, self.Recalls[id].endTime - GameTimer())
 				local pos = {x = self.Window.x, y = self.Window.y - swap * 60}
 				DrawRect(pos.x, pos.y, timer / dur * 375, 16, DrawColor(192, 220, 220, 220))
-				self:DrawOutlineRect(pos.x, pos.y, 375, 16, 3, DrawColor(224, 25, 25, 25))
+				self:DrawRectOutline(pos.x, pos.y, 375, 16, 3, DrawColor(224, 25, 25, 25))
 				DrawText(hero.charName .. string.format(" (%.1fs)", timer), 15,
 					pos.x + 2, pos.y - 18, DrawColor(192, 255, 255, 255))
 				local t = self:CalcTimeToHit(self:Distance(myHero.pos, self.Base))
