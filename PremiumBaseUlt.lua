@@ -209,7 +209,7 @@ function BaseUlt:OnDraw()
 				DrawText(hero.charName, 15, pos.x + 2, pos.y - 18, DrawColor(192, 255, 255, 255))
 				local t = self:CalcTimeToHit(self:Distance(myHero.pos, self.Base))
 				if t <= dur and self.Recalls[id].process then DrawRect(pos.x + t /
-					dur * 375 - 2, pos.y, 5, 16, DrawColor(224, 220, 10, 30)) end
+					dur * 375 - 2, pos.y + 3, 5, 13, DrawColor(224, 220, 10, 30)) end
 				swap = swap + 1
 			end
 		end
