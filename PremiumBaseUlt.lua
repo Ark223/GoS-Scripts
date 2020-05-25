@@ -80,6 +80,11 @@ function BaseUlt:Distance(p1, p2)
 	return MathSqrt(dx * dx + dy * dy)
 end
 
+function BaseUlt:DrawOutlineRect(x, y, w, h, t, c)
+	DrawLine(x, y, x + w, y, t, c); DrawLine(x + w, y, x + w, y + h, t, c)
+	DrawLine(x + w, y + h, x, y + h, t, c); DrawLine(x, y + h, x, y, t, c)
+end
+
 function BaseUlt:ForceUlt()
 	self.Action = true
 	local mm = Vector(self.Base):ToMM()
@@ -92,14 +97,42 @@ function BaseUlt:ForceUlt()
 	Control.mouse_event(MOUSEEVENTF_LEFTUP)
 end
 
+function BaseUlt:IsInsideTheBox(pt)
+	local x, y = self.Window.x, self.Window.y
+	return pt.x >= x and pt.x <= x + 375
+		and pt.y >= y and pt.y <= y + 83
+end
+
+function BaseUlt:IsOnButton(pt)
+	local x, y = self.Window.x, self.Window.y
+	return pt.x >= x + 141 and pt.x <= x + 221
+		and pt.y >= y + 46 and pt.y <= y + 74
+end
+
 function BaseUlt:IsUltReady()
 	return GameCanUseSpell(_R) == READY
 end
 
+function BaseUlt:ProcessWhirlingDeath()
+	if myHero:GetSpellData(_R).toggleState == 2 then
+		local data = SpellData["Draven"]
+		local arrival = data.speed * (GameTimer() - self.Timer - data.delay)
+		local pos = self.StartPos:Extended(self.EndPos, arrival)
+		if self:Distance(pos, self.Base) < 1000 then
+			_G.Control.CastSpell(HK_R) end; return
+	end
+	local spell = myHero.activeSpell
+	if spell and spell.valid and spell.isChanneling and
+		spell.name == "DravenRCast" and self.Timer ~= spell.startTime then
+		self.StartPos, self.EndPos, self.Timer = Vector(spell.startPos),
+			Vector(spell.placementPos), spell.startTime
+	end
+end
+
 function BaseUlt:__init()
 	self.Window = {x = Game.Resolution().x * 0.5, y = Game.Resolution().y * 0.5}
-	self.Action, self.Allow, self.Done, self.Base, self.CharName, self.Mia,
-		self.Recalls = false, nil, false, nil, myHero.charName, {}, {}
+	self.Action, self.Allow, self.Done, self.Base, self.StartPos, self.EndPos, self.Timer, self.CharName,
+		self.Mia, self.Recalls = false, nil, false, nil, nil, nil, 0, myHero.charName, {}, {}
 	for i = 1, GameObjectCount() do
 		local obj = GameObject(i)
 		if obj.isEnemy and obj.type == Obj_AI_SpawnPoint then
@@ -117,19 +150,10 @@ function BaseUlt:__init()
 		self:OnProcessRecall(unit, recall) end)
 	Callback.Add("WndMsg", function(...) self:OnWndMsg(...) end)
 	Callback.Add("Draw", function() self:OnDraw() end)
-	Callback.Add("Tick", function() self:OnTick() end)
-end
-
-function BaseUlt:IsInsideTheBox(pt)
-	local x, y = self.Window.x, self.Window.y
-	return pt.x >= x and pt.x <= x + 375
-		and pt.y >= y and pt.y <= y + 83
-end
-
-function BaseUlt:IsOnButton(pt)
-	local x, y = self.Window.x, self.Window.y
-	return pt.x >= x + 141 and pt.x <= x + 221
-		and pt.y >= y + 46 and pt.y <= y + 74
+	Callback.Add("Tick", function() self:OnTick()
+		if self.CharName == "Draven" then
+			self:ProcessWhirlingDeath() end
+	end)
 end
 
 function BaseUlt:OnPreAttack(args)
@@ -154,11 +178,6 @@ function BaseUlt:OnWndMsg(msg, wParam)
 		self.Done = true; return end
 	self.Allow = msg == 513 and wParam == 0 and self:IsInsideTheBox(cursorPos)
 		and {x = self.Window.x - cursorPos.x, y = self.Window.y - cursorPos.y} or nil
-end
-
-function BaseUlt:DrawOutlineRect(x, y, w, h, t, c)
-	DrawLine(x, y, x + w, y, t, c); DrawLine(x + w, y, x + w, y + h, t, c)
-	DrawLine(x + w, y + h, x, y + h, t, c); DrawLine(x, y + h, x, y, t, c)
 end
 
 function BaseUlt:OnDraw()
