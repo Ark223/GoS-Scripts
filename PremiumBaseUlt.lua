@@ -296,7 +296,8 @@ function BaseUlt:OnDraw()
 				local pos = {x = self.Window.x, y = self.Window.y - swap * 60}
 				DrawRect(pos.x, pos.y, timer / dur * 375, 16, DrawColor(192, 220, 220, 220))
 				self:DrawOutlineRect(pos.x, pos.y, 375, 16, 3, DrawColor(224, 25, 25, 25))
-				DrawText(hero.charName, 15, pos.x + 2, pos.y - 18, DrawColor(192, 255, 255, 255))
+				DrawText(hero.charName .. string.format(" (%.1fs)", timer), 15,
+					pos.x + 2, pos.y - 18, DrawColor(192, 255, 255, 255))
 				local t = self:CalcTimeToHit(self:Distance(myHero.pos, self.Base))
 				if t <= dur and self.Recalls[id].process then DrawRect(pos.x + t /
 					dur * 375 - 3, pos.y + 1, 7, 14, DrawColor(224, 220, 10, 30)) end
@@ -320,7 +321,6 @@ function BaseUlt:OnTick()
 			end
 			if self.Recalls[id] then
 				local data = SpellData[self.CharName]
-				if data.collision and self:IsColliding() then return end
 				local lvl = myHero:GetSpellData(_R).level
 				local dmg = data.damage(lvl)
 				local dist = self:Distance(myHero.pos, self.Base)
@@ -337,12 +337,13 @@ function BaseUlt:OnTick()
 					dmg = data.type == 2 and
 						self:CalcPhysicalDamage(myHero, hero, dmg)
 						or self:CalcMagicalDamage(myHero, hero, dmg)
-					if dmg >= hero.health then
-						self.Recalls[id].process = true
+					if dmg >= hero.health and not (data.collision and
+						self:IsColliding()) then self.Recalls[id].process = true
 						if recallTime <= timeToHit + 0.1 and recallTime >
-							timeToHit - 0.5 then self:ForceUlt() end
+							timeToHit - 0.5 then self:ForceUlt() end; return
 					end
 				end
+				self.Recalls[id].process = false
 			end
 		end
 	end
