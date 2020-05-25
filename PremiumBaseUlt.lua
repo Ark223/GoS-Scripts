@@ -11,11 +11,22 @@
 
 local DrawColor, DrawLine, DrawRect, DrawText, GameCanUseSpell, GameHero, GameObject, GameObjectCount, GameTimer =
 	Draw.Color, Draw.Line, Draw.Rect, Draw.Text, Game.CanUseSpell, Game.Hero, Game.Object, Game.ObjectCount, Game.Timer
-local MathCeil, MathFloor, MathMax, MathSqrt = math.ceil, math.floor, math.max, math.sqrt
+local MathCeil, MathFloor, MathHuge, MathMax, MathSqrt, TableInsert =
+	math.ceil, math.floor, math.huge, math.max, math.sqrt, table.insert
 
 local function GameHeroCount()
 	local c = Game.HeroCount()
 	return (not c or c < 0 or c > 12) and 0 or c
+end
+
+local function GetPathCount(unit)
+	local c = unit.pathing.pathCount
+	return (not c or c < 0 or c > 20) and -1 or c
+end
+
+local function GetPathIndex(unit)
+	local i = unit.pathing.pathIndex
+	return (not i or i < 0 or i > 20) and -1 or i
 end
 
 local SpellData = {
@@ -75,6 +86,19 @@ function BaseUlt:CalcTimeToHit(dist)
 	return data.delay + dist / speed
 end
 
+function BaseUlt:CutWaypoints(waypoints, distance)
+	local result = {}
+	for i = 1, #waypoints - 1 do
+		local dist = self:Distance(waypoints[i], waypoints[i + 1])
+		if dist > distance then
+			TableInsert(result, waypoints[i]:Extended(waypoints[i + 1], distance))
+			for j = i + 1, #waypoints do TableInsert(result, waypoints[j]) end; break
+		end
+		distance = distance - dist
+	end
+	return #result > 0 and result or {waypoints[#waypoints]}
+end
+
 function BaseUlt:Distance(p1, p2)
 	local dx, dy = p2.x - p1.x, p2.z - p1.z
 	return MathSqrt(dx * dx + dy * dy)
@@ -97,6 +121,35 @@ function BaseUlt:ForceUlt()
 	Control.mouse_event(MOUSEEVENTF_LEFTUP)
 end
 
+function BaseUlt:GetWaypoints(unit)
+	local result = {}
+	table.insert(result, unit.pos)
+	if unit.pathing.hasMovePath then
+		local index, count = GetPathIndex(unit), GetPathCount(unit)
+		if index == -1 or count == -1 then return result end
+		for i = index, count do TableInsert(result, unit:GetPath(i)) end
+	end
+	return result
+end
+
+function BaseUlt:Interception(startPos, endPos, source, speed, missileSpeed, delay)
+	local dir = (endPos - startPos)
+	local magn = MathSqrt(dir.x * dir.x + dir.z * dir.z)
+	local vel = Vector(speed * dir.x / magn, dir.y, speed * dir.z / magn)
+	dir = (startPos - source)
+	local a = vel.x * vel.x + vel.z * vel.z - missileSpeed * missileSpeed
+	local b = 2 * (vel.x * dir.x + vel.z * dir.z)
+	local c = dir.x * dir.x + dir.z * dir.z
+	local delta = b * b - 4 * a * c
+	if delta >= 0 then
+		local sqr = MathSqrt(delta)
+		local t1, t2, t = (-b + sqr) / (2 * a), (-b - sqr) / (2 * a), -1
+		if t2 >= delay then t = t1 >= delay and MathMin(t1, t2) or MathMax(t1, t2) end
+		return Vector(startPos + vel * t), t
+	end
+	return nil, -1
+end
+
 function BaseUlt:IsInsideTheBox(pt)
 	local x, y = self.Window.x, self.Window.y
 	return pt.x >= x and pt.x <= x + 375
@@ -111,6 +164,23 @@ end
 
 function BaseUlt:IsUltReady()
 	return GameCanUseSpell(_R) == READY
+end
+
+function BaseUlt:PredictPosition(unit, speed, delay)
+	if not (unit and unit.valid and unit.visible) then return nil end
+	local ms = unit.pathing.isDashing and unit.pathing.dashSpeed or unit.ms
+	local waypoints = self:CutWaypoints(self:GetWaypoints(unit), ms * delay)
+	if #waypoints == 1 or speed == MathHuge then return waypoints[1] end
+	local totalTime = 0
+	for i = 1, #waypoints - 1 do
+		local a, b = waypoints[i], waypoints[i + 1]
+		local timeB = self:Distance(a, b) / ms
+		a = a:Extended(b, -ms * totalTime)
+		local pos, t = self:Interception(a, b, myHero.pos, ms, speed, totalTime)
+		if t > 0 and t >= totalTime and t <= totalTime + timeB then return pos end
+		totalTime = totalTime + timeB
+	end
+	return waypoints[#waypoints]
 end
 
 function BaseUlt:ProcessWhirlingDeath()
