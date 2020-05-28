@@ -9,11 +9,11 @@
 
 --]]
 
-local Version = "1.0.1"
+local Version = "1.0.2"
 
 local DrawColor, DrawLine, DrawRect, DrawText, GameCanUseSpell, GameHero, GameObject, GameObjectCount, GameTimer =
 	Draw.Color, Draw.Line, Draw.Rect, Draw.Text, Game.CanUseSpell, Game.Hero, Game.Object, Game.ObjectCount, Game.Timer
-local MathFloor, MathHuge, MathMax, MathSqrt, TableInsert = math.floor, math.huge, math.max, math.sqrt, table.insert
+local MathFloor, MathHuge, MathMax, MathMin, MathSqrt, TableInsert = math.floor, math.huge, math.max, math.min, math.sqrt, table.insert
 
 local function GameHeroCount()
 	local c = Game.HeroCount()
@@ -326,7 +326,7 @@ function BaseUlt:OnTick()
 				local dist = self:Distance(myHero.pos, self.Base)
 				if self.CharName == "Jinx" then
 					dmg = dmg * (0.1 + 0.0006 * MathMax(1500, dist)) +
-						(0.2 + 0.05 * lvl) * (unit.maxHealth - unit.health)
+						(0.2 + 0.05 * lvl) * (hero.maxHealth - hero.health)
 				end
 				local timeToHit, recallTime = self:CalcTimeToHit(dist),
 					self.Recalls[id].endTime - GameTimer()
