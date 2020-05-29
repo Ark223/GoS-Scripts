@@ -9,7 +9,7 @@
 
 --]]
 
-local Version = "1.0.2"
+local Version = "1.0.3"
 
 local DrawColor, DrawLine, DrawRect, DrawText, GameCanUseSpell, GameHero, GameObject, GameObjectCount, GameTimer =
 	Draw.Color, Draw.Line, Draw.Rect, Draw.Text, Game.CanUseSpell, Game.Hero, Game.Object, Game.ObjectCount, Game.Timer
@@ -42,8 +42,8 @@ local SpellData = {
 	},
 	["Ezreal"] = {
 		speed = 2000, delay = 1, radius = 160, collision = false,
-		type = 2, damage = function(lvl) return 100 + 75 * lvl +
-		0.5 * myHero.bonusDamage + 0.45 * myHero.ap end
+		type = 2, damage = function(lvl) return 200 + 150 * lvl +
+		myHero.bonusDamage + 0.9 * myHero.ap end
 	},
 	["Jinx"] = {
 		speed = 1700, delay = 0.6, radius = 140, collision = true,
@@ -164,8 +164,8 @@ function BaseUlt:IsColliding()
 		if hero.valid and hero.isEnemy and not self.Recalls[hero.networkID] then
 			local data = SpellData[self.CharName]
 			local pos = self:PredictPosition(hero, data.speed, data.delay)
-			if pos and self:Distance(pos, self:ClosestPointOnSegment(myHero.pos,
-				self.Base, pos) < data.radius * 2) then return true end
+			if pos and self:Distance(pos, self:ClosestPointOnSegment(myHero.pos, self.Base,
+				pos)) < (data.radius + hero.boundingRadius) then return true end
 		end
 	end
 	return false
