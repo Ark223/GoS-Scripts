@@ -22,7 +22,7 @@ local function ReadFile(file)
 	txt:close(); return result
 end
 
-local Version = 1.02
+local Version = 1.03
 local function AutoUpdate()
 	DownloadFile("https://raw.githubusercontent.com/Ark223/GoS-Scripts/master/PremiumOrbwalkerWIP.version", SCRIPT_PATH .. "PremiumOrbwalkerWIP.version")
 	if tonumber(ReadFile(SCRIPT_PATH .. "PremiumOrbwalkerWIP.version")) > Version then
@@ -641,7 +641,7 @@ function PremiumOrb:OnTick()
 		if args.Process then self:AttackUnit(args.Target) end
 	elseif self:CanMove() then
 		local args = {Target = nil, Process = true}
-		for i = 1, #self.OnPreMove do self.OnPreMove[i]() end
+		for i = 1, #self.OnPreMove do self.OnPreMove[i](args) end
 		if args.Process then self:Move(args.Target) end
 	end
 end
