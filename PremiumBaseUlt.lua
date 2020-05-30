@@ -9,7 +9,7 @@
 
 --]]
 
-local Version = "1.0.3"
+local Version = "1.0.4"
 
 local DrawColor, DrawLine, DrawRect, DrawText, GameCanUseSpell, GameHero, GameObject, GameObjectCount, GameTimer =
 	Draw.Color, Draw.Line, Draw.Rect, Draw.Text, Game.CanUseSpell, Game.Hero, Game.Object, Game.ObjectCount, Game.Timer
@@ -80,9 +80,7 @@ function BaseUlt:CalcTimeToHit(dist)
 	local data = SpellData[self.CharName]
 	local speed = data.speed
 	if self.CharName == "Jinx" and dist > 1350 then
-		local diff = MathMin(dist - 1350, 150)
-		speed = (diff ^ 2 * 0.3 + (diff + 1350) *
-			speed + 2200 * (dist - 1500)) / dist
+		speed = 2200 - 720000 / dist
 	end
 	return data.delay + dist / speed
 end
@@ -272,6 +270,7 @@ function BaseUlt:OnWndMsg(msg, wParam)
 end
 
 function BaseUlt:OnDraw()
+	if myHero.dead then return end
 	if not self.Done then
 		if self.Allow then self.Window = {x = cursorPos.x +
 			self.Allow.x, y = cursorPos.y + self.Allow.y} end
@@ -284,7 +283,6 @@ function BaseUlt:OnDraw()
 		DrawText("OK", 14, self.Window.x + 173, self.Window.y + 53, DrawColor(192, 255, 255, 255))
 		return
 	end
-	if myHero.dead then return end
 	local swap = 0
 	for i = 1, GameHeroCount() do
 		local hero = GameHero(i)
@@ -325,7 +323,7 @@ function BaseUlt:OnTick()
 				local dmg = data.damage(lvl)
 				local dist = self:Distance(myHero.pos, self.Base)
 				if self.CharName == "Jinx" then
-					dmg = dmg * (0.1 + 0.0006 * MathMax(1500, dist)) +
+					dmg = dmg * (0.1 + 0.0006 * MathMin(1500, dist)) +
 						(0.2 + 0.05 * lvl) * (hero.maxHealth - hero.health)
 				end
 				local timeToHit, recallTime = self:CalcTimeToHit(dist),
