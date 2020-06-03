@@ -9,11 +9,12 @@
 
 --]]
 
-local Version = "1.0.4"
+local Version = "1.0.5"
 
 local DrawColor, DrawLine, DrawRect, DrawText, GameCanUseSpell, GameHero, GameObject, GameObjectCount, GameTimer =
 	Draw.Color, Draw.Line, Draw.Rect, Draw.Text, Game.CanUseSpell, Game.Hero, Game.Object, Game.ObjectCount, Game.Timer
-local MathFloor, MathHuge, MathMax, MathMin, MathSqrt, TableInsert = math.floor, math.huge, math.max, math.min, math.sqrt, table.insert
+local MathCeil, MathFloor, MathHuge, MathMax, MathMin, MathSqrt, TableInsert =
+	math.ceil, math.floor, math.huge, math.max, math.min, math.sqrt, table.insert
 
 local function GameHeroCount()
 	local c = Game.HeroCount()
@@ -306,8 +307,10 @@ function BaseUlt:OnDraw()
 end
 
 function BaseUlt:OnTick()
+	local ultReady = self:IsUltReady()
 	if _G.JustEvade and _G.JustEvade:Evading() or (_G.ExtLibEvade and _G.ExtLibEvade.Evading)
-		or Game.IsChatOpen() or myHero.dead or not self:IsUltReady() then return end
+		or Game.IsChatOpen() or myHero.dead or not ultReady then return end
+	if self.Action and not ultReady then self.Action = false end
 	for i = 1, GameHeroCount() do
 		local hero = GameHero(i)
 		if hero.valid and hero.isEnemy then
@@ -329,9 +332,9 @@ function BaseUlt:OnTick()
 				local timeToHit, recallTime = self:CalcTimeToHit(dist),
 					self.Recalls[id].endTime - GameTimer()
 				if timeToHit <= self.Recalls[id].duration then
-					local delta = timeToHit + recallTime + (self.Mia[id]
-						and GameTimer() - self.Mia[id] or 0)
-					dmg = dmg - MathFloor(delta) * hero.hpRegen
+					local delta = timeToHit + (self.Mia[id]
+						and (GameTimer() - self.Mia[id]) or 0)
+					dmg = dmg - MathCeil(delta) * hero.hpRegen
 					dmg = data.type == 2 and
 						self:CalcPhysicalDamage(myHero, hero, dmg)
 						or self:CalcMagicalDamage(myHero, hero, dmg)
