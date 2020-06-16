@@ -2373,7 +2373,7 @@ function Viktor:GetBestLaserCastPos()
 			Geometry:To3D(unitPos), candidates[2], self.E).CastPos or
 			(_G.PremiumPrediction:IsMoving(candidates[1]) and
 			_G.PremiumPrediction:GetPositionAfterTime(candidates[1], 1) or
-			Geometry:To3D(PPoint(unitPos + dir)))
+			Geometry:To3D(PPoint(unitPos + dir * self.E.radius)))
 		if predPos == nil then return end
 		local endPos = Geometry:To3D(unitPos:Extended(
 			Geometry:To2D(predPos), self.E.range))
@@ -2826,9 +2826,10 @@ function Xerath:Action(mode, targetQ, targetWE)
 		self.XerathMenu.Combo.UseQ:Value() or
 		self.XerathMenu.Harass.UseQ:Value()) then
 		if targetQ == nil then
-			if self.ActiveQ and self.LastPos and self.LastDirection and
-				(GameTimer() - self.InitChargeTimer) * 500 + self.Q.minRange >= self.Q.range then
-					local castPos = self.MyPos:Extended(PPoint(self.LastPos + self.LastDirection), self.Q.minRange)
+			if self.ActiveQ and self.LastPos and self.LastDirection and (GameTimer() -
+				self.InitChargeTimer) * 500 + self.Q.minRange >= self.Q.range then
+					local castPos = PPoint(self.LastPos +
+						self.LastDirection * self.Q.minRange)
 					self.QueueTimer = GameTimer()
 					_G.Control.SetCursorPos(Geometry:To3D(castPos))
 					ControlKeyDown(HK_Q); ControlKeyUp(HK_Q)
