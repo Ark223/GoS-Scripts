@@ -9,7 +9,7 @@
 
 --]]
 
-local Version = "1.0.5"
+local Version = "1.0.6"
 
 local DrawColor, DrawLine, DrawRect, DrawText, GameCanUseSpell, GameHero, GameObject, GameObjectCount, GameTimer =
 	Draw.Color, Draw.Line, Draw.Rect, Draw.Text, Game.CanUseSpell, Game.Hero, Game.Object, Game.ObjectCount, Game.Timer
@@ -50,6 +50,11 @@ local SpellData = {
 		speed = 1700, delay = 0.6, radius = 140, collision = true,
 		type = 2, damage = function(lvl) return 150 + 100 * lvl +
 		1.5 * myHero.bonusDamage end
+	},
+	["Senna"] = {
+		speed = 20000, delay = 1, radius = 180, collision = false,
+		type = 2, damage = function(lvl) return 125 + 125 * lvl +
+		myHero.bonusDamage + 0.5 * myHero.ap end
 	}
 }
 
