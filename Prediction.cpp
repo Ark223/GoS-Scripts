@@ -158,8 +158,8 @@ class Prediction
 
 int Prediction::GetPathIndex(std::vector<Vec2> path, Vec2 point)
 {
-	// find the shortest distance between main point
-	// and the closest point on each path segment
+    // find the shortest distance between main point
+    // and the closest point on each path segment
     int index = 0;
     float distance = std::numeric_limits<float>::infinity();
     for (int i = 0; i < path.size() - 1; i++)
@@ -179,7 +179,7 @@ float Prediction::Interception(const Vec2 startPos, const Vec2 endPos,
     const Vec2 source, int speed, int missileSpeed, float delay = 0.0)
 {
     // dynamic circle-circle collision
-	// https://ericleong.me/research/circle-circle/
+    // https://ericleong.me/research/circle-circle/
     Vec2 dir = endPos - startPos;
     float magn = dir.Length();
     Vec2 vel = dir * float(speed) / magn;
@@ -205,10 +205,10 @@ float Prediction::Interception(const Vec2 startPos, const Vec2 endPos,
 
 std::vector<Vec2> Prediction::CutWaypoints(std::vector<Vec2> waypoints, float dist)
 {
-	// cut the path at the given distance and return the remaining points
+    // cut the path at the given distance and return the remaining points
     if (dist < 0)
     {
-		// if the distance is negative, extend the first segment
+        // if the distance is negative, extend the first segment
         waypoints[0] = waypoints[0].Extend(waypoints[1], dist);
         return waypoints;
     }
@@ -220,7 +220,7 @@ std::vector<Vec2> Prediction::CutWaypoints(std::vector<Vec2> waypoints, float di
         float d = waypoints[i].Distance(waypoints[i + 1]);
         if (d > distance)
         {
-			// found!
+            // found!
             result.push_back(waypoints[i].Extend(
                 waypoints[i + 1], distance));
             for (int j = i + 1; j < size; j++)
@@ -230,8 +230,8 @@ std::vector<Vec2> Prediction::CutWaypoints(std::vector<Vec2> waypoints, float di
         distance -= d;
     }
     if (result.size() > 0) return result;
-	// if the given distance is longer than path length,
-	// then return the vector with last waypoint
+    // if the given distance is longer than path length,
+    // then return the vector with last waypoint
     result.push_back(waypoints.back());
     return result;
 }
@@ -239,10 +239,10 @@ std::vector<Vec2> Prediction::CutWaypoints(std::vector<Vec2> waypoints, float di
 
 std::vector<Vec2> Prediction::GetWaypoints(Unit unit)
 {
-	// we got the complete unit's path, but we need to find on which segment he's currently
-	// on, just to predict the current situation (not the situation that already passed)
+    // we got the complete unit's path, but we need to find on which segment he's currently
+    // on, just to predict the current situation (not the situation that already passed)
     std::vector<Vec2> result;
-	// obviously the first waypoint is his position
+    // obviously the first waypoint is his position
     result.push_back(unit.Position);
     int size = unit.Paths.size();
     if (size <= 1) // unit is standing
@@ -252,8 +252,8 @@ std::vector<Vec2> Prediction::GetWaypoints(Unit unit)
         result.push_back(unit.Paths[1]);
         return result;
     }
-	// unit has multi-segment moving path find the index of
-	// segment where he's currently on and continue getting waypoints...
+    // unit has multi-segment moving path find the index of
+    // segment where he's currently on and continue getting waypoints...
     for (int i = GetPathIndex(unit.Paths, result[0]); i < size; i++)
         result.push_back(unit.Paths[i]);
     return result;
@@ -265,29 +265,29 @@ PredictionOutput Prediction::PredictPosition(Vec2 source, Unit unit, PredictionI
     PredictionOutput output;
     output.CastPos = Vec2();
     output.PredPos = Vec2();
-	// need some more checks like IsValid etc...
+    // need some more checks like IsValid etc...
     if (source.IsZero()) return output;
     std::vector<Vec2> waypoints = GetWaypoints(unit);
-	// calculate max boundary offset for cast position
-	int offset = input.Radius +
+    // calculate max boundary offset for cast position
+    int offset = input.Radius +
         (input.AddHitBox ? unit.BoundingRadius : 0);
     if (input.Speed == 0 || input.Speed >= 9999)
     {
-		// our spell isn't a missile, so we cut waypoints based on
-		// delay and movement speed, then we return the first point
+        // our spell isn't a missile, so we cut waypoints based on
+        // delay and movement speed, then we return the first point
         float threshold = input.Delay * unit.MovementSpeed;
         output.CastPos = CutWaypoints(waypoints, threshold - offset)[0];
         output.PredPos = CutWaypoints(waypoints, threshold)[0];
         return output;
     }
-	// predict the unit path when spell windup already completed;
-	// we subtract the offset this time - just in case if unit is going
-	// to complete the path we'll have perfectly calculated positions;
-	// run the drawing simulation, then you'll see what i mean ;)
+    // predict the unit path when spell windup already completed;
+    // we subtract the offset this time - just in case if unit is going
+    // to complete the path we'll have perfectly calculated positions;
+    // run the drawing simulation, then you'll see what i mean ;)
     waypoints = CutWaypoints(waypoints,
         input.Delay * unit.MovementSpeed - offset);
-	// here is the part for handling dynamic prediction
-	// for each path segment we calculate interception time
+    // here is the part for handling dynamic prediction
+    // for each path segment we calculate interception time
     float totalTime = 0;
     for (int i = 0; i < waypoints.size() - 1; i++)
     {
@@ -298,17 +298,17 @@ PredictionOutput Prediction::PredictPosition(Vec2 source, Unit unit, PredictionI
             unit.MovementSpeed, input.Speed, totalTime);
         if (t > 0 && t >= totalTime && t <= totalTime + tB)
         {
-			// interception time is valid, we found the solution
+            // interception time is valid, we found the solution
             float threshold = t * unit.MovementSpeed;
             output.CastPos = CutWaypoints(waypoints, threshold)[0];
             output.PredPos = CutWaypoints(waypoints, threshold + offset)[0];
             return output;
         }
-		// if any segment didn't pass the test, we add unit's arrival
-		// time on segment to the total time and use it for further tests
+        // if any segment didn't pass the test, we add unit's arrival
+        // time on segment to the total time and use it for further tests
         totalTime += tB;
     }
-	// no solution found, so unit is completing his path...
+    // no solution found, so unit is completing his path...
     Vec2 pos = waypoints.back();
     output.CastPos = pos;
     output.PredPos = pos;
