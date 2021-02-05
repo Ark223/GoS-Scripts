@@ -43,7 +43,7 @@ local SpellData = {
 	},
 	["Ezreal"] = {
 		speed = 2000, delay = 1, radius = 160, collision = false,
-		type = 2, damage = function(lvl) return 200 + 150 * lvl +
+		type = 1, damage = function(lvl) return 200 + 150 * lvl +
 		myHero.bonusDamage + 0.9 * myHero.ap end
 	},
 	["Jinx"] = {
