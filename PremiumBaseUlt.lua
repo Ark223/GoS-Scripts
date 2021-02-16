@@ -165,7 +165,7 @@ end
 function BaseUlt:IsColliding()
 	for i = 1, GameHeroCount() do
 		local hero = GameHero(i)
-		if hero.valid and hero.isEnemy and not self.Recalls[hero.networkID] then
+		if hero.valid and hero.isEnemy and self.Recalls[hero.networkID] then
 			local data = SpellData[self.CharName]
 			local pos = self:PredictPosition(hero, data.speed, data.delay)
 			if pos and self:Distance(pos, self:ClosestPointOnSegment(myHero.pos, self.Base,
